@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Robust PyQt5 TSL 1128 GUI with clean Connect/Disconnect
+Robust PyQt5 TSL 1128 GUI with clean Connect/Disconnect
 """
 import sys
 import serial
@@ -68,6 +68,7 @@ class SerialWorker(QThread):
 
     def stop(s):
         s._running = False  # signal thread to exit; actual close in run()
+        s.wait()            # block until the thread has fully shut down
 
 
 class MainWindow(QMainWindow):
