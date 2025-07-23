@@ -75,7 +75,7 @@ class MainWindow(QMainWindow):
         self.log=QTextEdit(readOnly=True); l.addWidget(self.log)
         self.tag_counts={}; self.table=QTableWidget(0,2)
         self.table.setHorizontalHeaderLabels(["Tag","Count"]); l.addWidget(self.table)
-        # Auto‑poll
+        # Auto‑poll every 10 seconds
         self.timer=QTimer(self); self.timer.timeout.connect(self.poll_status)
         self.timer.start(10000)
         self.worker=None; self.refresh_ports()
