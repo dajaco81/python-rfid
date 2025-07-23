@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Robust PyQt5 TSL 1128 GUI with clean Connect/Disconnect
+Robust PyQt5 TSL 1128 GUI with clean Connect/Disconnect
 """
 import sys, serial, serial.tools.list_ports, re
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QLabel,
