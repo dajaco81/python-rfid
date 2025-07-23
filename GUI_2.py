@@ -42,6 +42,7 @@ class SerialWorker(QThread):
 
     def stop(s):
         s._running = False  # signal thread to exit; actual close in run()
+        s.wait()            # block until the thread has fully shut down
 
 class MainWindow(QMainWindow):
     def __init__(self):
