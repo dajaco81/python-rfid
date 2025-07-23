@@ -27,6 +27,18 @@ from PyQt5.QtCore import QTimer
 
 # Friendly labels for version and battery fields
 VERSION_LABELS = {
+    "MF": "Manufacturer",
+    "US": "Unit serial",
+    "PV": "Protocol version",
+    "UF": "Firmware version",
+    "UB": "Bootloader version",
+    "RS": "RFID serial",
+    "RF": "RFID firmware",
+    "RB": "RFID bootloader",
+    "AS": "Assembly serial",
+    "BA": "Bluetooth address",
+    "BV": "Battery voltage",
+    # older field names for compatibility
     "VR": "Firmware version",
     "AP": "Model",
     "SN": "Serial number",
@@ -35,6 +47,8 @@ VERSION_LABELS = {
 BATTERY_LABELS = {
     "BV": "Battery voltage",
     "PC": "Charge level",
+    "BP": "Charge level",
+    "CH": "Charging state",
 }
 
 
@@ -64,7 +78,8 @@ class SerialWorker(QThread):
                     parts = buf.split("\r\n")
                     buf = parts.pop()
                     for line in parts:
-                        s.data_received.emit(f"<< {line}")
+                        if line.strip():
+                            s.data_received.emit(f"<< {line}")
         finally:
             if s.ser and s.ser.is_open:
                 s.ser.close()
@@ -289,13 +304,15 @@ class MainWindow(QMainWindow):
         elif self.current_cmd == ".bl":
             if ':' in line:
                 k, v = line.split(':', 1)
-                label = BATTERY_LABELS.get(k.strip(), k.strip())
-                if k.strip() == "BV":
-                    self.battery_info[label] = f"{v.strip()}mV"
-                elif k.strip() == "PC":
-                    self.battery_info[label] = f"{v.strip()}%"
+                field = k.strip()
+                label = BATTERY_LABELS.get(field, field)
+                val = v.strip()
+                if field == "BV":
+                    self.battery_info[label] = f"{val}mV"
+                elif field in ("PC", "BP"):
+                    self.battery_info[label] = f"{val}%"
                 else:
-                    self.battery_info[label] = v.strip()
+                    self.battery_info[label] = val
                 self.update_battery_display()
 
     def update_version_display(self):
