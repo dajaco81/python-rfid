@@ -19,11 +19,23 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QTableWidget,
     QTableWidgetItem,
-    QDial,
+    QProgressBar,
 )
 from PyQt5.QtCore import QThread
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtCore import QTimer
+
+# Friendly labels for version and battery fields
+VERSION_LABELS = {
+    "VR": "Firmware version",
+    "AP": "Model",
+    "SN": "Serial number",
+}
+
+BATTERY_LABELS = {
+    "BV": "Battery voltage",
+    "PC": "Charge level",
+}
 
 
 class SerialWorker(QThread):
@@ -134,22 +146,37 @@ class MainWindow(QMainWindow):
         left_layout.addWidget(self.table)
         # Right side info containers
         right_layout.addWidget(QLabel("Version"))
+        version_container = QVBoxLayout()
+        self.version_bar = QProgressBar()
+        self.version_bar.setTextVisible(False)
+        self.version_bar.setFixedHeight(4)
+        self.version_bar.setStyleSheet(
+            "QProgressBar::chunk { background-color: blue; }"
+        )
+        version_container.addWidget(self.version_bar)
         self.version_display = QTextEdit(readOnly=True)
-        right_layout.addWidget(self.version_display)
+        version_container.addWidget(self.version_display)
+        right_layout.addLayout(version_container)
 
         right_layout.addWidget(QLabel("Battery"))
+        battery_container = QVBoxLayout()
+        self.battery_bar = QProgressBar()
+        self.battery_bar.setTextVisible(False)
+        self.battery_bar.setFixedHeight(4)
+        self.battery_bar.setStyleSheet(
+            "QProgressBar::chunk { background-color: blue; }"
+        )
+        battery_container.addWidget(self.battery_bar)
         self.battery_display = QTextEdit(readOnly=True)
-        right_layout.addWidget(self.battery_display)
-
-        right_layout.addWidget(QLabel("Next poll"))
-        self.dial = QDial()
-        self.dial.setNotchesVisible(False)
-        right_layout.addWidget(self.dial)
+        battery_container.addWidget(self.battery_display)
+        right_layout.addLayout(battery_container)
         # Auto‑poll
         self.poll_interval = 10
         self.countdown = self.poll_interval
-        self.dial.setRange(0, self.poll_interval)
-        self.dial.setValue(self.poll_interval)
+        self.version_bar.setRange(0, self.poll_interval)
+        self.battery_bar.setRange(0, self.poll_interval)
+        self.version_bar.setValue(0)
+        self.battery_bar.setValue(0)
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_countdown)
@@ -217,16 +244,9 @@ class MainWindow(QMainWindow):
         self.input.clear()
 
     def process_data(self, text):
-        if not self.current_silent:
-            self.log.append(text)
         if text.startswith("<< "):
             line = text[3:]
             self.parse_line(line)
-            if line == "OK:" or line.startswith("ER:"):
-                if self.current_silent and self.silent_queue:
-                    self.silent_queue.pop(0)
-                self.current_silent = False
-                self.current_cmd = None
             if (
                 not self.current_silent
                 and ":" not in line
@@ -235,6 +255,16 @@ class MainWindow(QMainWindow):
                 tag = line.strip()
                 self.tag_counts[tag] = self.tag_counts.get(tag, 0) + 1
                 self.update_table()
+            if not self.current_silent:
+                self.log.append(text)
+            if line == "OK:" or line.startswith("ER:"):
+                if self.current_silent and self.silent_queue:
+                    self.silent_queue.pop(0)
+                self.current_silent = False
+                self.current_cmd = None
+        else:
+            if not self.current_silent:
+                self.log.append(text)
 
     def update_table(self):
         self.table.setRowCount(len(self.tag_counts))
@@ -253,12 +283,19 @@ class MainWindow(QMainWindow):
         elif self.current_cmd == ".vr":
             if ':' in line:
                 k, v = line.split(':', 1)
-                self.version_info[k.strip()] = v.strip()
+                label = VERSION_LABELS.get(k.strip(), k.strip())
+                self.version_info[label] = v.strip()
                 self.update_version_display()
         elif self.current_cmd == ".bl":
             if ':' in line:
                 k, v = line.split(':', 1)
-                self.battery_info[k.strip()] = v.strip()
+                label = BATTERY_LABELS.get(k.strip(), k.strip())
+                if k.strip() == "BV":
+                    self.battery_info[label] = f"{v.strip()}mV"
+                elif k.strip() == "PC":
+                    self.battery_info[label] = f"{v.strip()}%"
+                else:
+                    self.battery_info[label] = v.strip()
                 self.update_battery_display()
 
     def update_version_display(self):
@@ -270,7 +307,9 @@ class MainWindow(QMainWindow):
         self.battery_display.setPlainText(txt)
 
     def update_countdown(self):
-        self.dial.setValue(self.countdown)
+        progress = self.poll_interval - self.countdown
+        self.version_bar.setValue(progress)
+        self.battery_bar.setValue(progress)
         self.countdown -= 1
         if self.countdown < 0:
             self.poll_status()
