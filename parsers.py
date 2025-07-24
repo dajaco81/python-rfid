@@ -1,17 +1,17 @@
 """Utility functions for interpreting reader output."""
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 from constants import VERSION_LABELS, BATTERY_LABELS
 
 
 def parse_line(
     line: str,
-    current_cmd: str | None,
+    current_cmd: Optional[str],
     silent_queue: List[str],
     version_info: Dict[str, str],
     battery_info: Dict[str, str],
-) -> Tuple[str | None, bool, bool, bool]:
+) -> Tuple[Optional[str], bool, bool, bool]:
     """Parse a response line and update info dicts.
 
     Returns updated current_cmd, whether current_cmd is silent, and flags

@@ -20,6 +20,7 @@ from PyQt5.QtWidgets import (
     QProgressBar,
 )
 from PyQt5.QtCore import QTimer
+from typing import Optional
 
 from serial_worker import SerialWorker
 from parsers import parse_line
@@ -154,7 +155,7 @@ class MainWindow(QMainWindow):
         self.refresh_ports()
 
         self.silent_queue: list[str] = []
-        self.current_cmd: str | None = None
+        self.current_cmd: Optional[str] = None
         self.current_silent = False
         self.version_info: dict[str, str] = {}
         self.battery_info: dict[str, str] = {}
