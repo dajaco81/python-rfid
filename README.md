@@ -25,3 +25,7 @@ python run.py
 ```
 
 Replace `python` with `python3` if needed.
+
+### Console output
+
+Commands sent to the reader appear once in the console prefixed with `>>`.

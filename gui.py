@@ -228,7 +228,7 @@ class MainWindow(QMainWindow):
         else:
             self.log.append(f">> {cmd}")
 
-        self.worker.write(cmd, echo=not silent)
+        self.worker.write(cmd, echo=False)
         self.input.clear()
 
     def process_data(self, text: str):
