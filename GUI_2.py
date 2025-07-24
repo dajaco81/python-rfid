@@ -54,25 +54,23 @@ BATTERY_LABELS = {
 
 class SerialWorker(QThread):
     data_received = pyqtSignal(str)
-
-    def __init__(s, port, baud=115200):
+    def __init__(self, port, baud=115200):
         """Initialize the worker thread with a serial port."""
         super().__init__()
-        s.port = port
-        s.baud = baud
-        s._running = True
-        s.ser = None
-
-    def run(s):
+        self.port = port
+        self.baud = baud
+        self._running = True
+        self.ser = None
+    def run(self):
         """Continuously read from the port and emit lines."""
         try:
-            s.ser = serial.Serial(s.port, s.baud, timeout=1)
-            s.data_received.emit(f"✅ Connected to {s.port}")
+            self.ser = serial.Serial(self.port, self.baud, timeout=1)
+            self.data_received.emit(f"✅ Connected to {self.port}")
             buf = ""
-            while s._running:
+            while self._running:
                 try:
-                    n = s.ser.in_waiting or 1
-                    raw = s.ser.read(n).decode(errors="ignore")
+                    n = self.ser.in_waiting or 1
+                    raw = self.ser.read(n).decode(errors="ignore")
                 except (serial.SerialException, OSError):
                     break
                 if raw:
@@ -81,27 +79,27 @@ class SerialWorker(QThread):
                     buf = parts.pop()
                     for line in parts:
                         if line.strip():
-                            s.data_received.emit(f"<< {line}")
+                            self.data_received.emit(f"<< {line}")
         finally:
-            if s.ser and s.ser.is_open:
-                s.ser.close()
-                s.data_received.emit("🔌 Disconnected")
+            if self.ser and self.ser.is_open:
+                self.ser.close()
+                self.data_received.emit("🔌 Disconnected")
 
-    def write(s, cmd: str, echo=True):
+    def write(self, cmd: str, echo=True):
         """Write a command string to the device."""
         if not (s.ser and s.ser.is_open):
             return
         for p in cmd.split(";"):
-            s.ser.write((p + "\r\n").encode())
+            self.ser.write((p + "\r\n").encode())
             if echo:
-                s.data_received.emit(f">> {p}")
+                self.data_received.emit(f">> {p}")
 
-    def stop(s):
+    def stop(self):
         """Signal the thread to stop and wait for it."""
         s._running = False  # signal thread to exit; actual close in run()
         s.wait()            # block until the thread has fully shut down
 
-
+        
 class MainWindow(QMainWindow):
     def __init__(self):
         """Configure widgets and initialize member data."""
