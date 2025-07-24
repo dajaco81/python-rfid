@@ -130,6 +130,10 @@ class MainWindow(QMainWindow):
             b = QPushButton(name)
             b.clicked.connect(slot)
             h0.addWidget(b)
+        self.poll_toggle = QPushButton("Polling Off")
+        self.poll_toggle.setCheckable(True)
+        self.poll_toggle.clicked.connect(self.toggle_polling)
+        h0.addWidget(self.poll_toggle)
         left_layout.addLayout(h0)
         # Shortcuts
         h2 = QHBoxLayout()
@@ -154,6 +158,9 @@ class MainWindow(QMainWindow):
         # Log + Table
         self.log = QTextEdit(readOnly=True)
         left_layout.addWidget(self.log)
+        b_clear = QPushButton("Clear Console")
+        b_clear.clicked.connect(self.clear_console)
+        left_layout.addWidget(b_clear)
 
         self.tag_counts = {}
         self.table = QTableWidget(0, 2)
@@ -166,7 +173,10 @@ class MainWindow(QMainWindow):
         self.version_bar.setTextVisible(False)
         self.version_bar.setFixedHeight(4)
         self.version_bar.setStyleSheet(
-            "QProgressBar::chunk { background-color: blue; }"
+            """
+            QProgressBar {border:1px solid #555;border-radius:2px;background:#eee;}
+            QProgressBar::chunk {background-color:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #66f,stop:1 #9cf);}
+            """
         )
         version_container.addWidget(self.version_bar)
         self.version_display = QTextEdit(readOnly=True)
@@ -179,23 +189,28 @@ class MainWindow(QMainWindow):
         self.battery_bar.setTextVisible(False)
         self.battery_bar.setFixedHeight(4)
         self.battery_bar.setStyleSheet(
-            "QProgressBar::chunk { background-color: blue; }"
+            """
+            QProgressBar {border:1px solid #555;border-radius:2px;background:#eee;}
+            QProgressBar::chunk {background-color:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #66f,stop:1 #9cf);}
+            """
         )
         battery_container.addWidget(self.battery_bar)
         self.battery_display = QTextEdit(readOnly=True)
         battery_container.addWidget(self.battery_display)
         right_layout.addLayout(battery_container)
         # Auto‑poll
-        self.poll_interval = 10
-        self.countdown = self.poll_interval
-        self.version_bar.setRange(0, self.poll_interval)
-        self.battery_bar.setRange(0, self.poll_interval)
+        self.poll_interval = 10  # seconds
+        self.progress_range = 100
+        self.progress = 0
+        self.poll_enabled = False
+        self.version_bar.setRange(0, self.progress_range)
+        self.battery_bar.setRange(0, self.progress_range)
         self.version_bar.setValue(0)
         self.battery_bar.setValue(0)
 
         self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_countdown)
-        self.timer.start(1000)
+        self.timer.timeout.connect(self.update_progress)
+        self.timer.start(100)
 
         self.worker = None
         self.refresh_ports()
@@ -228,16 +243,31 @@ class MainWindow(QMainWindow):
         self.worker = SerialWorker(port)
         self.worker.data_received.connect(self.process_data)
         self.worker.start()
+        if self.poll_enabled:
+            self.poll_status()
 
     def disconnect_serial(self):
         if self.worker:
             self.worker.stop()
             self.worker = None
+        self.progress = 0
+        self.version_bar.setValue(0)
+        self.battery_bar.setValue(0)
+
+    def toggle_polling(self):
+        self.poll_enabled = self.poll_toggle.isChecked()
+        self.poll_toggle.setText("Polling On" if self.poll_enabled else "Polling Off")
+        if self.poll_enabled and self.worker:
+            self.poll_status()
 
     def poll_status(self):
         for cmd in (".vr", ".bl"):
             self.send_command(cmd, silent=True)
-        self.countdown = self.poll_interval
+        self.progress = 0
+
+    def clear_console(self):
+        """Clear the log output area."""
+        self.log.clear()
 
     def send_command(self, cmd: str, silent=False):
         cmd = cmd.strip()
@@ -323,14 +353,20 @@ class MainWindow(QMainWindow):
         txt = "\n".join(f"{k}: {v}" for k, v in self.battery_info.items())
         self.battery_display.setPlainText(txt)
 
-    def update_countdown(self):
-        progress = self.poll_interval - self.countdown
-        self.version_bar.setValue(progress)
-        self.battery_bar.setValue(progress)
-        self.countdown -= 1
-        if self.countdown < 0:
+    def update_progress(self):
+        if not self.poll_enabled or not self.worker:
+            self.progress = 0
+            self.version_bar.setValue(0)
+            self.battery_bar.setValue(0)
+            return
+
+        self.progress += 1
+        if self.progress > self.progress_range:
             self.poll_status()
-            self.countdown = self.poll_interval
+            self.progress = 0
+
+        self.version_bar.setValue(self.progress)
+        self.battery_bar.setValue(self.progress)
 
     def closeEvent(self, e):
         if self.worker:
