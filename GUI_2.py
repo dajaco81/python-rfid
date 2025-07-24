@@ -54,15 +54,15 @@ BATTERY_LABELS = {
 
 class SerialWorker(QThread):
     data_received = pyqtSignal(str)
-
     def __init__(self, port, baud=115200):
+        """Initialize the worker thread with a serial port."""
         super().__init__()
         self.port = port
         self.baud = baud
         self._running = True
         self.ser = None
-
     def run(self):
+        """Continuously read from the port and emit lines."""
         try:
             self.ser = serial.Serial(self.port, self.baud, timeout=1)
             self.data_received.emit(f"✅ Connected to {self.port}")
@@ -86,7 +86,8 @@ class SerialWorker(QThread):
                 self.data_received.emit("🔌 Disconnected")
 
     def write(self, cmd: str, echo=True):
-        if not (self.ser and self.ser.is_open):
+        """Write a command string to the device."""
+        if not (s.ser and s.ser.is_open):
             return
         for p in cmd.split(";"):
             self.ser.write((p + "\r\n").encode())
@@ -94,12 +95,14 @@ class SerialWorker(QThread):
                 self.data_received.emit(f">> {p}")
 
     def stop(self):
-        self._running = False  # signal thread to exit; actual close in run()
-        self.wait()            # block until the thread has fully shut down
+        """Signal the thread to stop and wait for it."""
+        s._running = False  # signal thread to exit; actual close in run()
+        s.wait()            # block until the thread has fully shut down
 
-
+        
 class MainWindow(QMainWindow):
     def __init__(self):
+        """Configure widgets and initialize member data."""
         super().__init__()
         self.setWindowTitle("TSL 1128 Interface")
         self.resize(800, 600)
@@ -222,6 +225,7 @@ class MainWindow(QMainWindow):
         self.battery_info = {}
 
     def refresh_ports(self):
+        """Rescan available serial ports."""
         ports = serial.tools.list_ports.comports()
         self.combo.clear()
         for p in ports:
@@ -237,6 +241,7 @@ class MainWindow(QMainWindow):
             self.worker = None
 
     def connect_serial(self):
+        """Create and start the worker for the chosen port."""
         port = self.combo.currentData()
         if not port or self.worker:
             return
@@ -245,6 +250,7 @@ class MainWindow(QMainWindow):
         self.worker.start()
 
     def disconnect_serial(self):
+        """Stop the worker and reset the UI."""
         if self.worker:
             self.worker.stop()
             self.worker = None
@@ -253,12 +259,14 @@ class MainWindow(QMainWindow):
         self.battery_bar.setValue(0)
 
     def toggle_polling(self):
+        """Turn automatic status polling on or off."""
         self.poll_enabled = self.poll_toggle.isChecked()
         self.poll_toggle.setText("Polling On" if self.poll_enabled else "Polling Off")
         if self.poll_enabled and self.worker:
             self.poll_status()
 
     def poll_status(self):
+        """Issue queued commands for status updates."""
         for cmd in (".vr", ".bl"):
             self.send_command(cmd, silent=True)
         self.progress = 0
@@ -268,6 +276,7 @@ class MainWindow(QMainWindow):
         self.log.clear()
 
     def send_command(self, cmd: str, silent=False):
+        """Send a command string to the reader."""
         cmd = cmd.strip()
         if not cmd:
             return
@@ -287,6 +296,7 @@ class MainWindow(QMainWindow):
         self.input.clear()
 
     def process_data(self, text):
+        """Handle data emitted from the worker thread."""
         if text.startswith("✅ Connected"):
             self.log.append(text)
             if self.poll_enabled:
@@ -321,12 +331,14 @@ class MainWindow(QMainWindow):
                 self.log.append(text)
 
     def update_table(self):
+        """Update the table with tag counts."""
         self.table.setRowCount(len(self.tag_counts))
         for r, (tag, count) in enumerate(self.tag_counts.items()):
             self.table.setItem(r, 0, QTableWidgetItem(tag))
             self.table.setItem(r, 1, QTableWidgetItem(str(count)))
 
     def parse_line(self, line: str):
+        """Parse a line from the reader response."""
         if line.startswith("CS:"):
             self.current_cmd = line[4:].strip()
             self.current_silent = bool(
@@ -355,14 +367,17 @@ class MainWindow(QMainWindow):
                 self.update_battery_display()
 
     def update_version_display(self):
+        """Display collected version information."""
         txt = "\n".join(f"{k}: {v}" for k, v in self.version_info.items())
         self.version_display.setPlainText(txt)
 
     def update_battery_display(self):
+        """Display collected battery information."""
         txt = "\n".join(f"{k}: {v}" for k, v in self.battery_info.items())
         self.battery_display.setPlainText(txt)
 
     def update_progress(self):
+        """Advance progress bars and poll when complete."""
         if not self.poll_enabled or not self.worker:
             self.progress = 0
             self.version_bar.setValue(0)
@@ -378,6 +393,7 @@ class MainWindow(QMainWindow):
         self.battery_bar.setValue(self.progress)
 
     def closeEvent(self, e):
+        """Cleanly stop the worker before closing."""
         if self.worker:
             self.worker.stop()
         e.accept()
