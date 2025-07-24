@@ -23,8 +23,13 @@ def parse_line(
 
     if line.startswith("CS:"):
         current_cmd = line[4:].strip()
-        current_silent = bool(silent_queue and silent_queue[0] == current_cmd)
-    elif line == "OK:" or line.startswith("ER:"):
+    elif silent_queue and line.strip() == silent_queue[0]:
+        # Some readers simply echo the command without a prefix
+        current_cmd = line.strip()
+
+    current_silent = bool(silent_queue and silent_queue[0] == current_cmd)
+
+    if line == "OK:" or line.startswith("ER:"):
         pass
     elif current_cmd == ".vr":
         if ":" in line:
