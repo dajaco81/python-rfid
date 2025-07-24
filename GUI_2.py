@@ -120,18 +120,18 @@ class MainWindow(QMainWindow):
         b_refresh.clicked.connect(self.refresh_ports)
         h1.addWidget(b_refresh)
         left_layout.addLayout(h1)
-        # Connect/Disconnect/Poll
+        # Connect/Disconnect
         h0 = QHBoxLayout()
         for name, slot in [
             ("Connect", self.connect_serial),
             ("Disconnect", self.disconnect_serial),
-            ("Poll Status", self.poll_status),
         ]:
             b = QPushButton(name)
             b.clicked.connect(slot)
             h0.addWidget(b)
-        self.poll_toggle = QPushButton("Polling Off")
+        self.poll_toggle = QPushButton("Polling On")
         self.poll_toggle.setCheckable(True)
+        self.poll_toggle.setChecked(True)
         self.poll_toggle.clicked.connect(self.toggle_polling)
         h0.addWidget(self.poll_toggle)
         left_layout.addLayout(h0)
@@ -202,7 +202,7 @@ class MainWindow(QMainWindow):
         self.poll_interval = 10  # seconds
         self.progress_range = 100
         self.progress = 0
-        self.poll_enabled = False
+        self.poll_enabled = True
         self.version_bar.setRange(0, self.progress_range)
         self.battery_bar.setRange(0, self.progress_range)
         self.version_bar.setValue(0)
@@ -243,8 +243,6 @@ class MainWindow(QMainWindow):
         self.worker = SerialWorker(port)
         self.worker.data_received.connect(self.process_data)
         self.worker.start()
-        if self.poll_enabled:
-            self.poll_status()
 
     def disconnect_serial(self):
         if self.worker:
@@ -289,6 +287,17 @@ class MainWindow(QMainWindow):
         self.input.clear()
 
     def process_data(self, text):
+        if text.startswith("✅ Connected"):
+            self.log.append(text)
+            if self.poll_enabled:
+                self.poll_status()
+            return
+        if text.startswith("🔌 Disconnected"):
+            self.log.append(text)
+            self.progress = 0
+            self.version_bar.setValue(0)
+            self.battery_bar.setValue(0)
+            return
         if text.startswith("<< "):
             line = text[3:]
             self.parse_line(line)
