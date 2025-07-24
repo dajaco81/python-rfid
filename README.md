@@ -21,7 +21,7 @@ pip install -r requirements.txt
 Run the GUI application:
 
 ```bash
-python GUI_2.py
+python run.py
 ```
 
 Replace `python` with `python3` if needed.

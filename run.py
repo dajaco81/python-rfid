@@ -1,4 +1,4 @@
-"""Deprecated entry point for backward compatibility."""
+"""Entry point for the RFID GUI."""
 
 from gui import main
 
