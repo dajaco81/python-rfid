@@ -46,7 +46,7 @@ def parse_line(
             if field == "BV":
                 battery_info[label] = f"{val}mV"
             elif field in ("PC", "BP"):
-                battery_info[label] = f"{val}%"
+                battery_info[label] = val if val.endswith("%") else f"{val}%"
             else:
                 battery_info[label] = val
             battery_updated = True

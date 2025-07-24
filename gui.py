@@ -254,6 +254,8 @@ class MainWindow(QMainWindow):
                 self.version_info,
                 self.battery_info,
             )
+            if line.startswith("CS:"):
+                return
             if version_changed:
                 self.update_version_display()
             if battery_changed:
