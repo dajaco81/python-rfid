@@ -1,6 +1,0 @@
-"""Deprecated entry point for backward compatibility."""
-
-from gui import main
-
-if __name__ == "__main__":
-    main()
