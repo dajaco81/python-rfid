@@ -7,7 +7,10 @@ from PyQt5.QtCore import QThread, pyqtSignal
 class SerialWorker(QThread):
     """Read and write serial data in a background thread."""
 
-    data_received = pyqtSignal(str)
+    connected = pyqtSignal(str)
+    disconnected = pyqtSignal()
+    line_received = pyqtSignal(str)
+    command_sent = pyqtSignal(str)
 
     def __init__(self, port: str, baud: int = 115200):
         """Initialize the worker thread."""
@@ -21,7 +24,7 @@ class SerialWorker(QThread):
         """Read lines from the serial port and emit them."""
         try:
             self.ser = serial.Serial(self.port, self.baud, timeout=1)
-            self.data_received.emit(f"✅ Connected to {self.port}")
+            self.connected.emit(self.port)
             buf = ""
             while self._running:
                 try:
@@ -34,12 +37,13 @@ class SerialWorker(QThread):
                     parts = buf.split("\r\n")
                     buf = parts.pop()
                     for line in parts:
-                        if line.strip():
-                            self.data_received.emit(f"<< {line}")
+                        line = line.strip()
+                        if line:
+                            self.line_received.emit(line)
         finally:
             if self.ser and self.ser.is_open:
                 self.ser.close()
-                self.data_received.emit("🔌 Disconnected")
+                self.disconnected.emit()
 
     def write(self, cmd: str, echo: bool = True):
         """Write a command to the device."""
@@ -48,7 +52,7 @@ class SerialWorker(QThread):
         for part in cmd.split(";"):
             self.ser.write((part + "\r\n").encode())
             if echo:
-                self.data_received.emit(f">> {part}")
+                self.command_sent.emit(part)
 
     def stop(self):
         """Request the thread stop and wait for completion."""

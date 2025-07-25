@@ -182,7 +182,10 @@ class MainWindow(QMainWindow):
         if not port or self.worker:
             return
         self.worker = SerialWorker(port)
-        self.worker.data_received.connect(self.process_data)
+        self.worker.connected.connect(self.on_connected)
+        self.worker.disconnected.connect(self.on_disconnected)
+        self.worker.line_received.connect(self.process_line)
+        self.worker.command_sent.connect(self.on_command_sent)
         self.worker.start()
 
     def disconnect_serial(self):
@@ -225,59 +228,64 @@ class MainWindow(QMainWindow):
         if silent:
             for part in cmd.split(";"):
                 self.silent_queue.append(part.strip())
-        else:
-            self.log.append(f">> {cmd}")
 
-        self.worker.write(cmd, echo=False)
+        self.worker.write(cmd)
         self.input.clear()
 
-    def process_data(self, text: str):
-        """Handle data emitted from the worker thread."""
-        if text.startswith("✅ Connected"):
-            self.log.append(text)
-            if self.poll_enabled:
-                self.poll_status()
+    def on_connected(self, port: str):
+        """Handle reader connection."""
+        self.log.append(f"✅ Connected to {port}")
+        if self.poll_enabled:
+            self.poll_status()
+
+    def on_disconnected(self):
+        """Handle reader disconnection."""
+        self.log.append("🔌 Disconnected")
+        self.progress = 0
+        self.version_bar.setValue(0)
+        self.battery_bar.setValue(0)
+
+    def on_command_sent(self, cmd: str):
+        """Log sent commands that aren't silent."""
+        if self.silent_queue and self.silent_queue[0] == cmd:
             return
-        if text.startswith("🔌 Disconnected"):
-            self.log.append(text)
-            self.progress = 0
-            self.version_bar.setValue(0)
-            self.battery_bar.setValue(0)
+        self.log.append(f">> {cmd}")
+
+    def process_line(self, line: str):
+        """Process a single line of reader output."""
+        (
+            self.current_cmd,
+            self.current_silent,
+            version_changed,
+            battery_changed,
+        ) = parse_line(
+            line,
+            self.current_cmd,
+            self.silent_queue,
+            self.version_info,
+            self.battery_info,
+        )
+        if line.startswith("CS:"):
             return
-        if text.startswith("<< "):
-            line = text[3:]
-            (self.current_cmd, self.current_silent,
-             version_changed, battery_changed) = parse_line(
-                line,
-                self.current_cmd,
-                self.silent_queue,
-                self.version_info,
-                self.battery_info,
-            )
-            if line.startswith("CS:"):
-                return
-            if version_changed:
-                self.update_version_display()
-            if battery_changed:
-                self.update_battery_display()
-            if (
-                not self.current_silent
-                and ":" not in line
-                and re.fullmatch(r"[0-9A-Fa-f]+", line.strip())
-            ):
-                tag = line.strip()
-                self.tag_counts[tag] = self.tag_counts.get(tag, 0) + 1
-                self.update_table()
-            if not self.current_silent:
-                self.log.append(text)
-            if line == "OK:" or line.startswith("ER:"):
-                if self.current_silent and self.silent_queue:
-                    self.silent_queue.pop(0)
-                self.current_silent = False
-                self.current_cmd = None
-        else:
-            if not self.current_silent:
-                self.log.append(text)
+        if version_changed:
+            self.update_version_display()
+        if battery_changed:
+            self.update_battery_display()
+        if (
+            not self.current_silent
+            and ":" not in line
+            and re.fullmatch(r"[0-9A-Fa-f]+", line.strip())
+        ):
+            tag = line.strip()
+            self.tag_counts[tag] = self.tag_counts.get(tag, 0) + 1
+            self.update_table()
+        if not self.current_silent:
+            self.log.append(f"<< {line}")
+        if line == "OK:" or line.startswith("ER:"):
+            if self.current_silent and self.silent_queue:
+                self.silent_queue.pop(0)
+            self.current_silent = False
+            self.current_cmd = None
 
     def update_table(self):
         """Update the table with tag counts."""
