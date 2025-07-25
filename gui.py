@@ -23,7 +23,7 @@ from PyQt5.QtCore import QTimer
 from typing import Optional
 
 from serial_worker import SerialWorker
-from parsers import parse_line
+from parsers import ResponseParser, parse_payload
 from constants import VERSION_LABELS, BATTERY_LABELS
 
 
@@ -157,6 +157,7 @@ class MainWindow(QMainWindow):
         self.silent_queue: list[str] = []
         self.current_cmd: Optional[str] = None
         self.current_silent = False
+        self.response_parser = ResponseParser()
         self.version_info: dict[str, str] = {}
         self.battery_info: dict[str, str] = {}
 
@@ -253,39 +254,52 @@ class MainWindow(QMainWindow):
 
     def process_line(self, line: str):
         """Process a single line of reader output."""
-        (
-            self.current_cmd,
-            self.current_silent,
-            version_changed,
-            battery_changed,
-        ) = parse_line(
-            line,
-            self.current_cmd,
-            self.silent_queue,
+        resp = self.response_parser.feed(line)
+
+        if self.response_parser.command and self.current_cmd != self.response_parser.command:
+            self.current_cmd = self.response_parser.command
+            self.current_silent = bool(self.silent_queue and self.silent_queue[0] == self.current_cmd)
+
+        if resp is None:
+            if line.startswith("CS:"):
+                return
+            if not self.current_silent:
+                if ":" not in line and re.fullmatch(r"[0-9A-Fa-f]+", line.strip()):
+                    tag = line.strip()
+                    self.tag_counts[tag] = self.tag_counts.get(tag, 0) + 1
+                    self.update_table()
+                self.log.append(f"<< {line}")
+            return
+
+        version_changed, battery_changed = parse_payload(
+            resp.command,
+            resp.payload,
             self.version_info,
             self.battery_info,
         )
-        if line.startswith("CS:"):
-            return
         if version_changed:
             self.update_version_display()
         if battery_changed:
             self.update_battery_display()
-        if (
-            not self.current_silent
-            and ":" not in line
-            and re.fullmatch(r"[0-9A-Fa-f]+", line.strip())
-        ):
-            tag = line.strip()
-            self.tag_counts[tag] = self.tag_counts.get(tag, 0) + 1
-            self.update_table()
+
+        for pl in resp.payload:
+            if not self.current_silent:
+                if ":" not in pl and re.fullmatch(r"[0-9A-Fa-f]+", pl.strip()):
+                    tag = pl.strip()
+                    self.tag_counts[tag] = self.tag_counts.get(tag, 0) + 1
+                self.log.append(f"<< {pl}")
+
         if not self.current_silent:
-            self.log.append(f"<< {line}")
-        if line == "OK:" or line.startswith("ER:"):
-            if self.current_silent and self.silent_queue:
-                self.silent_queue.pop(0)
-            self.current_silent = False
-            self.current_cmd = None
+            if resp.ok:
+                self.log.append("<< OK:")
+            else:
+                self.log.append(f"<< ER: {resp.error}")
+
+        if self.current_silent and self.silent_queue:
+            self.silent_queue.pop(0)
+        self.current_silent = False
+        self.current_cmd = None
+        self.update_table()
 
     def update_table(self):
         """Update the table with tag counts."""
