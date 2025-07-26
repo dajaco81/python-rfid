@@ -14,19 +14,17 @@ from dataclasses import dataclass
 from constants import VERSION_LABELS, BATTERY_LABELS
 
 
+DecoderContext = Dict[str, Dict[str, str]]
+
+
 class PayloadDecoder(ABC):
     """Interface for command-specific payload decoders."""
 
     command: str
 
     @abstractmethod
-    def parse(
-        self,
-        lines: List[str],
-        version_info: Dict[str, str],
-        battery_info: Dict[str, str],
-    ) -> None:
-        """Decode *lines* updating info dictionaries as needed."""
+    def parse(self, lines: List[str], context: DecoderContext) -> None:
+        """Decode *lines* updating *context* as needed."""
         raise NotImplementedError
 
 
@@ -34,13 +32,10 @@ class VersionDecoder(PayloadDecoder):
     """Decoder for the ``.vr`` (version report) command."""
 
     command = ".vr"
+    target = "version_info"
 
-    def parse(
-        self,
-        lines: List[str],
-        version_info: Dict[str, str],
-        battery_info: Dict[str, str],
-    ) -> None:
+    def parse(self, lines: List[str], context: DecoderContext) -> None:
+        info = context.setdefault(self.target, {})
         for line in lines:
             if ":" not in line:
                 continue
@@ -50,22 +45,19 @@ class VersionDecoder(PayloadDecoder):
             v = val.strip()
 
             if field == "BV":
-                version_info[label] = f"{v}mV"
+                info[label] = f"{v}mV"
             else:
-                version_info[label] = v
+                info[label] = v
 
 
 class BatteryDecoder(PayloadDecoder):
     """Decoder for the ``.bl`` (battery level) command."""
 
     command = ".bl"
+    target = "battery_info"
 
-    def parse(
-        self,
-        lines: List[str],
-        version_info: Dict[str, str],
-        battery_info: Dict[str, str],
-    ) -> None:
+    def parse(self, lines: List[str], context: DecoderContext) -> None:
+        info = context.setdefault(self.target, {})
         for line in lines:
             if ":" not in line:
                 continue
@@ -75,9 +67,9 @@ class BatteryDecoder(PayloadDecoder):
             v = val.strip()
 
             if field == "BP":
-                battery_info[label] = v if v.endswith("%") else f"{v}%"
+                info[label] = v if v.endswith("%") else f"{v}%"
             else:
-                battery_info[label] = v
+                info[label] = v
 
 
 
@@ -145,21 +137,15 @@ class ResponseParser:
         return None
 
 
-def parse_payload(
-    command: str,
-    lines: List[str],
-    version_info: Dict[str, str],
-    battery_info: Dict[str, str],
-) -> None:
-    """Parse *lines* for a command using the registered decoder.
+def parse_payload(command: str, lines: List[str], context: DecoderContext) -> None:
+    """Parse *lines* for *command* using the registered decoder.
 
-    Payloads for ``.vr`` contain key/value pairs describing firmware and
-    hardware versions while ``.bl`` returns battery statistics. Additional
-    commands can be supported by subclassing :class:`PayloadDecoder` and
-    adding the decoder instance to :data:`DECODERS`.
+    ``context`` is a mapping of arbitrary names to dictionaries used by
+    decoders.  This allows new commands to share data stores without
+    requiring the parser interface to change.
     """
 
     decoder = DECODERS.get(command)
     if not decoder:
         return
-    decoder.parse(lines, version_info, battery_info)
+    decoder.parse(lines, context)
