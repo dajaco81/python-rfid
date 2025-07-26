@@ -293,8 +293,6 @@ class MainWindow(QMainWindow):
             self.current_silent = bool(self.silent_queue and self.silent_queue[0] == self.current_cmd)
 
         if resp is None:
-            if line.startswith("CS:"):
-                return
             if not self.current_silent:
                 if ":" not in line and re.fullmatch(r"[0-9A-Fa-f]+", line.strip()):
                     tag = line.strip()
