@@ -177,18 +177,10 @@ class MainWindow(QMainWindow):
         usb = []
         bt = []
         for p in ports:
-            desc = (p.description or "").lower()
-            dev = p.device.lower()
-            hwid = (p.hwid or "").lower()
-
-            if (
-                "bluetooth" in desc
-                or "bluetooth" in dev
-                or "bthenum" in hwid
-            ):
-                bt.append(p)
-            else:
+            if "usbserial" in p.device:
                 usb.append(p)
+            else:
+                bt.append(p)
 
         self.combo.clear()
 
@@ -203,10 +195,7 @@ class MainWindow(QMainWindow):
                     if self._port_available(info.device)
                     else "unavailable"
                 )
-                desc = info.description or "n/a"
-                if desc.endswith(f"({info.device})"):
-                    desc = desc.rsplit("(", 1)[0].strip()
-                txt = f"{info.device} — {desc} ({status})"
+                txt = f"{info.device} ({status})"
                 self.combo.addItem(txt, info.device)
 
         _add_group("USB ports", usb)
