@@ -33,17 +33,35 @@ class SerialWorker(QThread):
                 except (serial.SerialException, OSError):
                     break
                 if raw:
-                    buf += raw
-                    parts = buf.split("\r\n")
-                    buf = parts.pop()
-                    for line in parts:
-                        line = line.strip()
-                        if line:
-                            self.line_received.emit(line)
+                    buf = self._emit_lines(buf, raw)
         finally:
             if self.ser and self.ser.is_open:
                 self.ser.close()
                 self.disconnected.emit()
+
+    def _emit_lines(self, buf: str, raw: str) -> str:
+        """Emit complete lines from serial data and return remaining buffer.
+
+        Parameters
+        ----------
+        buf : str
+            Remainder of the previous read containing a partial line.
+        raw : str
+            Newly read characters from the serial port.
+
+        Returns
+        -------
+        str
+            The trailing incomplete line to carry over to the next read.
+        """
+        buf += raw
+        parts = buf.split("\r\n")
+        buf = parts.pop()
+        for line in parts:
+            line = line.strip()
+            if line:
+                self.line_received.emit(line)
+        return buf
 
     def write(self, cmd: str, echo: bool = True):
         """Write a command to the device."""
