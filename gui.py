@@ -33,7 +33,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         """Configure widgets and initialize member data."""
         super().__init__()
-        self.setWindowTitle("TSL 1128 Interface")
+        self.setWindowTitle("TSL 1128 Interface")
         self.resize(800, 600)
 
         w = QWidget()
@@ -75,7 +75,7 @@ class MainWindow(QMainWindow):
         for txt, cmd in [
             ("Version", ".vr"),
             ("Battery", ".bl"),
-            ("Inventory", ".ec on;.iv;.ec off"),
+            ("Inventory", ".iv"),
         ]:
             btn = QPushButton(txt)
             btn.clicked.connect(lambda _, c=cmd: self.send_command(c))
