@@ -303,16 +303,14 @@ class MainWindow(QMainWindow):
                 self.log.append(f"<< {line}")
             return
 
-        version_changed, battery_changed = parse_payload(
+        parse_payload(
             resp.command,
             resp.payload,
             self.version_info,
             self.battery_info,
         )
-        if version_changed:
-            self.update_version_display()
-        if battery_changed:
-            self.update_battery_display()
+        self.update_version_display()
+        self.update_battery_display()
 
         # Payload lines were already logged as they arrived while collecting the
         # response, so avoid logging them again here. Tag counts have also been

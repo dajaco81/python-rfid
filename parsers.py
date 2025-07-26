@@ -7,19 +7,11 @@ information) and ``.bl`` (battery information) operations, but the design is
 extensible to support additional commands with different payload structures.
 """
 
-from dataclasses import dataclass
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Optional
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 
 from constants import VERSION_LABELS, BATTERY_LABELS
-
-
-@dataclass
-class ParseResult:
-    """Flags indicating which information dictionaries were updated."""
-
-    version_updated: bool = False
-    battery_updated: bool = False
 
 
 class PayloadDecoder(ABC):
@@ -33,7 +25,7 @@ class PayloadDecoder(ABC):
         lines: List[str],
         version_info: Dict[str, str],
         battery_info: Dict[str, str],
-    ) -> ParseResult:
+    ) -> None:
         """Decode *lines* updating info dictionaries as needed."""
         raise NotImplementedError
 
@@ -48,16 +40,13 @@ class VersionDecoder(PayloadDecoder):
         lines: List[str],
         version_info: Dict[str, str],
         battery_info: Dict[str, str],
-    ) -> ParseResult:
-        result = ParseResult()
+    ) -> None:
         for line in lines:
             if ":" not in line:
                 continue
             key, val = line.split(":", 1)
             label = VERSION_LABELS.get(key.strip(), key.strip())
             version_info[label] = val.strip()
-            result.version_updated = True
-        return result
 
 
 class BatteryDecoder(PayloadDecoder):
@@ -70,8 +59,7 @@ class BatteryDecoder(PayloadDecoder):
         lines: List[str],
         version_info: Dict[str, str],
         battery_info: Dict[str, str],
-    ) -> ParseResult:
-        result = ParseResult()
+    ) -> None:
         for line in lines:
             if ":" not in line:
                 continue
@@ -85,8 +73,6 @@ class BatteryDecoder(PayloadDecoder):
                 battery_info[label] = v if v.endswith("%") else f"{v}%"
             else:
                 battery_info[label] = v
-            result.battery_updated = True
-        return result
 
 
 DECODERS: Dict[str, PayloadDecoder] = {
@@ -96,57 +82,6 @@ DECODERS: Dict[str, PayloadDecoder] = {
         BatteryDecoder(),
     )
 }
-
-
-def parse_line(
-    line: str,
-    current_cmd: Optional[str],
-    silent_queue: List[str],
-    version_info: Dict[str, str],
-    battery_info: Dict[str, str],
-) -> Tuple[Optional[str], bool, bool, bool]:
-    """Parse a single line of a streaming response.
-
-    Parameters
-    ----------
-    line : str
-        The raw line from the device without trailing newlines.
-    current_cmd : Optional[str]
-        Command currently in progress. Updated when ``CS:`` prefixes are seen
-        or when the device echoes a command from ``silent_queue``.
-    silent_queue : List[str]
-        Commands issued without console echo. The head of the queue indicates
-        the command currently considered silent.
-    version_info : Dict[str, str]
-        Mapping updated with fields extracted from ``.vr`` responses.
-    battery_info : Dict[str, str]
-        Mapping updated with fields extracted from ``.bl`` responses.
-
-    Returns
-    -------
-    tuple
-        ``(current_cmd, is_silent, version_changed, battery_changed)``
-    """
-    version_updated = False
-    battery_updated = False
-    current_silent = False
-
-    if line.startswith("CS:"):
-        current_cmd = line[4:].strip()
-    elif silent_queue and line.strip() == silent_queue[0]:
-        # Some readers simply echo the command without a prefix
-        current_cmd = line.strip()
-
-    current_silent = bool(silent_queue and silent_queue[0] == current_cmd)
-
-    if line == "OK:" or line.startswith("ER:"):
-        pass
-    elif current_cmd in DECODERS and ":" in line:
-        result = DECODERS[current_cmd].parse([line], version_info, battery_info)
-        version_updated = result.version_updated
-        battery_updated = result.battery_updated
-
-    return current_cmd, current_silent, version_updated, battery_updated
 
 
 @dataclass
@@ -209,21 +144,16 @@ def parse_payload(
     lines: List[str],
     version_info: Dict[str, str],
     battery_info: Dict[str, str],
-) -> Tuple[bool, bool]:
+) -> None:
     """Parse *lines* for a command using the registered decoder.
 
     Payloads for ``.vr`` contain key/value pairs describing firmware and
-    hardware versions while ``.bl`` returns battery statistics.  Additional
+    hardware versions while ``.bl`` returns battery statistics. Additional
     commands can be supported by subclassing :class:`PayloadDecoder` and
     adding the decoder instance to :data:`DECODERS`.
-
-    The return value is ``(version_changed, battery_changed)`` indicating which
-    of the provided dictionaries were updated.  Unknown commands simply yield
-    ``False, False``.
     """
 
     decoder = DECODERS.get(command)
     if not decoder:
-        return False, False
-    result = decoder.parse(lines, version_info, battery_info)
-    return result.version_updated, result.battery_updated
+        return
+    decoder.parse(lines, version_info, battery_info)
