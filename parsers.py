@@ -1,9 +1,101 @@
-"""Utility functions for interpreting reader output."""
+"""Utility helpers for interpreting reader output.
+
+This module contains a small state machine for collecting the payload lines
+returned from the reader and a set of decoders that translate payloads for
+specific commands.  The built in decoders handle the ``.vr`` (version
+information) and ``.bl`` (battery information) operations, but the design is
+extensible to support additional commands with different payload structures.
+"""
 
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Optional
+from abc import ABC, abstractmethod
 
 from constants import VERSION_LABELS, BATTERY_LABELS
+
+
+@dataclass
+class ParseResult:
+    """Flags indicating which information dictionaries were updated."""
+
+    version_updated: bool = False
+    battery_updated: bool = False
+
+
+class PayloadDecoder(ABC):
+    """Interface for command-specific payload decoders."""
+
+    command: str
+
+    @abstractmethod
+    def parse(
+        self,
+        lines: List[str],
+        version_info: Dict[str, str],
+        battery_info: Dict[str, str],
+    ) -> ParseResult:
+        """Decode *lines* updating info dictionaries as needed."""
+        raise NotImplementedError
+
+
+class VersionDecoder(PayloadDecoder):
+    """Decoder for the ``.vr`` (version report) command."""
+
+    command = ".vr"
+
+    def parse(
+        self,
+        lines: List[str],
+        version_info: Dict[str, str],
+        battery_info: Dict[str, str],
+    ) -> ParseResult:
+        result = ParseResult()
+        for line in lines:
+            if ":" not in line:
+                continue
+            key, val = line.split(":", 1)
+            label = VERSION_LABELS.get(key.strip(), key.strip())
+            version_info[label] = val.strip()
+            result.version_updated = True
+        return result
+
+
+class BatteryDecoder(PayloadDecoder):
+    """Decoder for the ``.bl`` (battery level) command."""
+
+    command = ".bl"
+
+    def parse(
+        self,
+        lines: List[str],
+        version_info: Dict[str, str],
+        battery_info: Dict[str, str],
+    ) -> ParseResult:
+        result = ParseResult()
+        for line in lines:
+            if ":" not in line:
+                continue
+            key, val = line.split(":", 1)
+            field = key.strip()
+            label = BATTERY_LABELS.get(field, field)
+            v = val.strip()
+            if field == "BV":
+                battery_info[label] = f"{v}mV"
+            elif field in ("PC", "BP"):
+                battery_info[label] = v if v.endswith("%") else f"{v}%"
+            else:
+                battery_info[label] = v
+            result.battery_updated = True
+        return result
+
+
+DECODERS: Dict[str, PayloadDecoder] = {
+    d.command: d
+    for d in (
+        VersionDecoder(),
+        BatteryDecoder(),
+    )
+}
 
 
 def parse_line(
@@ -13,10 +105,27 @@ def parse_line(
     version_info: Dict[str, str],
     battery_info: Dict[str, str],
 ) -> Tuple[Optional[str], bool, bool, bool]:
-    """Parse a response line and update info dicts.
+    """Parse a single line of a streaming response.
 
-    Returns updated current_cmd, whether current_cmd is silent, and flags
-    indicating whether version or battery info changed.
+    Parameters
+    ----------
+    line : str
+        The raw line from the device without trailing newlines.
+    current_cmd : Optional[str]
+        Command currently in progress. Updated when ``CS:`` prefixes are seen
+        or when the device echoes a command from ``silent_queue``.
+    silent_queue : List[str]
+        Commands issued without console echo. The head of the queue indicates
+        the command currently considered silent.
+    version_info : Dict[str, str]
+        Mapping updated with fields extracted from ``.vr`` responses.
+    battery_info : Dict[str, str]
+        Mapping updated with fields extracted from ``.bl`` responses.
+
+    Returns
+    -------
+    tuple
+        ``(current_cmd, is_silent, version_changed, battery_changed)``
     """
     version_updated = False
     battery_updated = False
@@ -32,25 +141,10 @@ def parse_line(
 
     if line == "OK:" or line.startswith("ER:"):
         pass
-    elif current_cmd == ".vr":
-        if ":" in line:
-            k, v = line.split(":", 1)
-            label = VERSION_LABELS.get(k.strip(), k.strip())
-            version_info[label] = v.strip()
-            version_updated = True
-    elif current_cmd == ".bl":
-        if ":" in line:
-            k, v = line.split(":", 1)
-            field = k.strip()
-            label = BATTERY_LABELS.get(field, field)
-            val = v.strip()
-            if field == "BV":
-                battery_info[label] = f"{val}mV"
-            elif field in ("PC", "BP"):
-                battery_info[label] = val if val.endswith("%") else f"{val}%"
-            else:
-                battery_info[label] = val
-            battery_updated = True
+    elif current_cmd in DECODERS and ":" in line:
+        result = DECODERS[current_cmd].parse([line], version_info, battery_info)
+        version_updated = result.version_updated
+        battery_updated = result.battery_updated
 
     return current_cmd, current_silent, version_updated, battery_updated
 
@@ -116,32 +210,20 @@ def parse_payload(
     version_info: Dict[str, str],
     battery_info: Dict[str, str],
 ) -> Tuple[bool, bool]:
-    """Parse response payload lines for known commands."""
+    """Parse *lines* for a command using the registered decoder.
 
-    version_updated = False
-    battery_updated = False
+    Payloads for ``.vr`` contain key/value pairs describing firmware and
+    hardware versions while ``.bl`` returns battery statistics.  Additional
+    commands can be supported by subclassing :class:`PayloadDecoder` and
+    adding the decoder instance to :data:`DECODERS`.
 
-    if command == ".vr":
-        for line in lines:
-            if ":" in line:
-                k, v = line.split(":", 1)
-                label = VERSION_LABELS.get(k.strip(), k.strip())
-                version_info[label] = v.strip()
-                version_updated = True
+    The return value is ``(version_changed, battery_changed)`` indicating which
+    of the provided dictionaries were updated.  Unknown commands simply yield
+    ``False, False``.
+    """
 
-    elif command == ".bl":
-        for line in lines:
-            if ":" in line:
-                k, v = line.split(":", 1)
-                field = k.strip()
-                label = BATTERY_LABELS.get(field, field)
-                val = v.strip()
-                if field == "BV":
-                    battery_info[label] = f"{val}mV"
-                elif field in ("PC", "BP"):
-                    battery_info[label] = val if val.endswith("%") else f"{val}%"
-                else:
-                    battery_info[label] = val
-                battery_updated = True
-
-    return version_updated, battery_updated
+    decoder = DECODERS.get(command)
+    if not decoder:
+        return False, False
+    result = decoder.parse(lines, version_info, battery_info)
+    return result.version_updated, result.battery_updated
