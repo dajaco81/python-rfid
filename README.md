@@ -7,6 +7,7 @@ A PyQt5 interface for TSL 1128 RFID readers.
 - Python 3
 - `pyserial`
 - `PyQt5`
+- `matplotlib`
 
 ## Installation
 
