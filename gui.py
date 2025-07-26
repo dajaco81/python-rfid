@@ -230,7 +230,7 @@ class MainWindow(QMainWindow):
             for part in cmd.split(";"):
                 self.silent_queue.append(part.strip())
 
-        self.worker.write(cmd)
+        self.worker.write(cmd, not silent)
         self.input.clear()
 
     def on_connected(self, port: str):
