@@ -4,6 +4,7 @@ import sys
 import re
 import serial
 import serial.tools.list_ports
+import serial.tools.list_ports_common
 from PyQt5.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -162,11 +163,11 @@ class MainWindow(QMainWindow):
         self.battery_info: dict[str, str] = {}
 
     @staticmethod
-    def _port_available(dev: str) -> bool:
-        """Return True if a port can be opened."""
+    def _port_accessible(dev: str) -> bool:
+        """Return True if ``dev`` can be opened."""
         try:
-            s = serial.Serial(dev)
-            s.close()
+            ser = serial.Serial(dev)
+            ser.close()
             return True
         except (serial.SerialException, OSError):
             return False
@@ -174,11 +175,12 @@ class MainWindow(QMainWindow):
     def refresh_ports(self):
         """Rescan available serial ports and categorize them."""
         ports = serial.tools.list_ports.comports()
-        usb = []
-        bt = []
+        usb: list[serial.tools.list_ports_common.ListPortInfo] = []
+        bt: list[serial.tools.list_ports_common.ListPortInfo] = []
         for p in ports:
-            desc = (p.description or "").lower()
-            if "bluetooth" in desc:
+            d = (p.description or "").lower()
+            hw = (p.hwid or "").lower()
+            if "bluetooth" in d or "bth" in hw or "rfcomm" in p.device.lower():
                 bt.append(p)
             else:
                 usb.append(p)
@@ -193,11 +195,14 @@ class MainWindow(QMainWindow):
             for info in plist:
                 status = (
                     "connected"
-                    if self._port_available(info.device)
+                    if self._port_accessible(info.device)
                     else "unavailable"
                 )
-                txt = f"{info.device} — {info.description} ({status})"
-                self.combo.addItem(txt, info.device)
+                text = f"{info.device} ({status})"
+                idx = self.combo.count()
+                self.combo.addItem(text, info.device)
+                if info.description:
+                    self.combo.setItemData(idx, info.description)
 
         _add_group("USB ports", usb)
         _add_group("Bluetooth ports", bt)
