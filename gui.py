@@ -161,17 +161,49 @@ class MainWindow(QMainWindow):
         self.version_info: dict[str, str] = {}
         self.battery_info: dict[str, str] = {}
 
+    @staticmethod
+    def _port_available(dev: str) -> bool:
+        """Return True if a port can be opened."""
+        try:
+            s = serial.Serial(dev)
+            s.close()
+            return True
+        except (serial.SerialException, OSError):
+            return False
+
     def refresh_ports(self):
-        """Rescan available serial ports."""
+        """Rescan available serial ports and categorize them."""
         ports = serial.tools.list_ports.comports()
-        self.combo.clear()
+        usb = []
+        bt = []
         for p in ports:
-            self.combo.addItem(f"{p.device} — {p.description}", p.device)
+            desc = (p.description or "").lower()
+            if "bluetooth" in desc:
+                bt.append(p)
+            else:
+                usb.append(p)
+
+        self.combo.clear()
+
+        def _add_group(label, plist):
+            if not plist:
+                return
+            self.combo.addItem(label)
+            self.combo.model().item(self.combo.count() - 1).setEnabled(False)
+            for info in plist:
+                status = (
+                    "connected"
+                    if self._port_available(info.device)
+                    else "unavailable"
+                )
+                txt = f"{info.device} — {info.description} ({status})"
+                self.combo.addItem(txt, info.device)
+
+        _add_group("USB ports", usb)
+        _add_group("Bluetooth ports", bt)
+
         if not ports:
             self.combo.addItem("<no ports>", "")
-
-        items = [self.combo.itemText(i) for i in range(self.combo.count())]
-        self.log.append(f"🔄 Ports: {items}")
 
         if self.worker:
             self.worker.stop()
