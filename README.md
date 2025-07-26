@@ -7,6 +7,7 @@ A PyQt5 interface for TSL 1128 RFID readers.
 - Python 3
 - `pyserial`
 - `PyQt5`
+- `matplotlib`
 
 ## Installation
 
@@ -44,8 +45,10 @@ Three commands are currently understood:
   pairs.  The fields are expanded to friendly names using ``VERSION_LABELS``.
 - ``.bl`` – reports battery statistics.  Fields such as ``BV`` (voltage) and
   ``BP`` (charge percentage) are normalised for display.
-- ``.iv`` – performs an inventory scan.  ``EP`` lines in the payload contain
-  EPC values which are tallied and displayed in the tag table.
+ - ``.iv`` – performs an inventory scan.  ``EP`` lines in the payload contain
+    EPC values which are tallied and displayed in the tag table.
+   When ``RI`` signal strength lines are enabled, the GUI plots the last 20
+   readings for each tag.
 
 New commands can be supported by subclassing ``PayloadDecoder`` in
 ``parsers.py`` and adding the instance to the ``DECODERS`` registry.

@@ -20,11 +20,21 @@ from PyQt5.QtWidgets import (
     QProgressBar,
 )
 from PyQt5.QtCore import QTimer
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
 from typing import Optional
 
 from serial_worker import SerialWorker
 from parsers import ResponseParser, parse_payload
-from constants import VERSION_LABELS, BATTERY_LABELS
+
+
+class MplCanvas(FigureCanvas):
+    """Simple matplotlib canvas for live plots."""
+
+    def __init__(self) -> None:
+        fig = Figure(figsize=(5, 3))
+        super().__init__(fig)
+        self.axes = fig.add_subplot(111)
 
 
 class MainWindow(QMainWindow):
@@ -100,8 +110,14 @@ class MainWindow(QMainWindow):
         left_layout.addWidget(b_clear)
 
         self.tag_counts = {}
+        self.tag_strengths: dict[str, list[float]] = {}
+        # Maintain only the most recent 20 strength readings per tag
+        self.strength_history_len = 20
+        self.pending_tag: Optional[str] = None
+        self.selected_tag: Optional[str] = None
         self.table = QTableWidget(0, 2)
         self.table.setHorizontalHeaderLabels(["Tag", "Count"])
+        self.table.itemSelectionChanged.connect(self.on_table_selection_changed)
         left_layout.addWidget(self.table)
 
         # Right side info containers
@@ -137,6 +153,10 @@ class MainWindow(QMainWindow):
         battery_container.addWidget(self.battery_display)
         right_layout.addLayout(battery_container)
 
+        right_layout.addWidget(QLabel("Signal Strength"))
+        self.strength_canvas = MplCanvas()
+        right_layout.addWidget(self.strength_canvas)
+
         # Auto‑poll
         self.poll_interval = 10  # seconds
         self.progress_range = 100
@@ -152,6 +172,7 @@ class MainWindow(QMainWindow):
         self.timer.start(100)
 
         self.worker = None
+        self.scanning = False
         self.refresh_ports()
 
         self.silent_queue: list[str] = []
@@ -236,6 +257,8 @@ class MainWindow(QMainWindow):
         self.progress = 0
         self.version_bar.setValue(0)
         self.battery_bar.setValue(0)
+        self.scanning = False
+        self.pending_tag = None
 
     def toggle_polling(self):
         """Turn automatic status polling on or off."""
@@ -275,6 +298,13 @@ class MainWindow(QMainWindow):
     def on_connected(self, port: str):
         """Handle reader connection."""
         self.log.append(f"✅ Connected to {port}")
+        self.tag_counts.clear()
+        self.tag_strengths.clear()
+        self.update_table()
+        self.update_strength_plot()
+        setup_cmd = ".iv -r on -e off -c off -dt off -ix off -qa dyn -qs s1 -tf on -o 29 -n"
+        self.send_command(setup_cmd, silent=True)
+        self.scanning = True
         if self.poll_enabled:
             self.poll_status()
 
@@ -284,6 +314,8 @@ class MainWindow(QMainWindow):
         self.progress = 0
         self.version_bar.setValue(0)
         self.battery_bar.setValue(0)
+        self.scanning = False
+        self.pending_tag = None
 
     def on_command_sent(self, cmd: str):
         """Log sent commands that aren't silent."""
@@ -293,6 +325,10 @@ class MainWindow(QMainWindow):
 
     def process_line(self, line: str):
         """Process a single line of reader output."""
+        if line.startswith("EP:") or line.startswith("RI:"):
+            self.handle_inventory_line(line)
+            return
+
         resp = self.response_parser.feed(line)
 
         if self.response_parser.command and self.current_cmd != self.response_parser.command:
@@ -315,6 +351,7 @@ class MainWindow(QMainWindow):
                 "version_info": self.version_info,
                 "battery_info": self.battery_info,
                 "tag_counts": self.tag_counts,
+                "tag_strengths": self.tag_strengths,
             },
         )
         self.update_version_display()
@@ -352,6 +389,73 @@ class MainWindow(QMainWindow):
         """Display collected battery information."""
         txt = "\n".join(f"{k}: {v}" for k, v in self.battery_info.items())
         self.battery_display.setPlainText(txt)
+
+    def on_table_selection_changed(self) -> None:
+        """Update selected tag for strength plotting."""
+        items = self.table.selectedItems()
+        if not items:
+            self.selected_tag = None
+            self.strength_canvas.axes.cla()
+            self.strength_canvas.draw()
+            return
+        row = self.table.currentRow()
+        tag_item = self.table.item(row, 0)
+        if tag_item:
+            self.selected_tag = tag_item.text()
+            self.update_strength_plot()
+
+    def update_strength_plot(self) -> None:
+        """Draw signal strength history for the selected tag."""
+        if not self.selected_tag:
+            return
+        data = [v for v in self.tag_strengths.get(self.selected_tag, []) if v is not None]
+        ax = self.strength_canvas.axes
+        ax.cla()
+        if data:
+            x_offset = max(0, self.strength_history_len - len(data))
+            ax.plot(range(x_offset, x_offset + len(data)), data, marker="o")
+            ax.set_ylim(min(data) - 1, max(data) + 1)
+        ax.set_xlim(0, self.strength_history_len - 1)
+        ax.set_xlabel("Read")
+        ax.set_ylabel("Signal strength")
+        self.strength_canvas.draw()
+
+    def handle_inventory_line(self, line: str) -> None:
+        """Process inventory EP/RI lines."""
+        if line.startswith("EP:"):
+            tag = line[3:].strip()
+            if not tag:
+                return
+            self.pending_tag = tag
+            self.tag_counts[tag] = self.tag_counts.get(tag, 0) + 1
+            hist = self.tag_strengths.setdefault(tag, [])
+            hist.append(None)
+            if len(hist) > self.strength_history_len:
+                hist.pop(0)
+            self.update_table()
+            if self.selected_tag == tag:
+                self.update_strength_plot()
+        elif line.startswith("RI:"):
+            val_str = line[3:].strip()
+            try:
+                strength = int(val_str)
+            except ValueError:
+                try:
+                    strength = float(val_str)
+                except ValueError:
+                    strength = None
+            if self.pending_tag:
+                hist = self.tag_strengths.setdefault(self.pending_tag, [])
+                if hist:
+                    if hist[-1] is None:
+                        hist[-1] = strength
+                    else:
+                        hist.append(strength)
+                        if len(hist) > self.strength_history_len:
+                            hist.pop(0)
+                if self.selected_tag == self.pending_tag:
+                    self.update_strength_plot()
+            self.pending_tag = None
 
     def update_progress(self):
         """Advance progress bars and poll when complete."""

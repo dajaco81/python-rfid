@@ -76,15 +76,44 @@ class InventoryDecoder(PayloadDecoder):
     """Decoder for the ``.iv`` (inventory) command."""
 
     command = ".iv"
-    target = "tag_counts"
+    count_target = "tag_counts"
+    strength_target = "tag_strengths"
+    # Number of strength samples retained per tag
+    history_len = 20
 
     def parse(self, lines: List[str], context: DecoderContext) -> None:
-        counts = context.setdefault(self.target, {})
+        counts = context.setdefault(self.count_target, {})
+        strengths = context.setdefault(self.strength_target, {})
+        last_tag: Optional[str] = None
         for line in lines:
             if line.startswith("EP:"):
                 tag = line[3:].strip()
                 if tag:
                     counts[tag] = counts.get(tag, 0) + 1
+                    hist = strengths.setdefault(tag, [])
+                    hist.append(None)
+                    if len(hist) > self.history_len:
+                        hist.pop(0)
+                    last_tag = tag
+            elif line.startswith("RI:"):
+                val_str = line[3:].strip()
+                try:
+                    strength = int(val_str)
+                except ValueError:
+                    try:
+                        strength = float(val_str)
+                    except ValueError:
+                        strength = None
+                if last_tag:
+                    hist = strengths.setdefault(last_tag, [])
+                    if hist:
+                        if hist[-1] is None:
+                            hist[-1] = strength
+                        else:
+                            hist.append(strength)
+                            if len(hist) > self.history_len:
+                                hist.pop(0)
+                last_tag = None
 
 
 
