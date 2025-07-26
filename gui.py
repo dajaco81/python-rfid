@@ -306,8 +306,10 @@ class MainWindow(QMainWindow):
         parse_payload(
             resp.command,
             resp.payload,
-            self.version_info,
-            self.battery_info,
+            {
+                "version_info": self.version_info,
+                "battery_info": self.battery_info,
+            },
         )
         self.update_version_display()
         self.update_battery_display()
