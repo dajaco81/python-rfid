@@ -72,12 +72,28 @@ class BatteryDecoder(PayloadDecoder):
                 info[label] = v
 
 
+class InventoryDecoder(PayloadDecoder):
+    """Decoder for the ``.iv`` (inventory) command."""
+
+    command = ".iv"
+    target = "tag_counts"
+
+    def parse(self, lines: List[str], context: DecoderContext) -> None:
+        counts = context.setdefault(self.target, {})
+        for line in lines:
+            if line.startswith("EP:"):
+                tag = line[3:].strip()
+                if tag:
+                    counts[tag] = counts.get(tag, 0) + 1
+
+
 
 DECODERS: Dict[str, PayloadDecoder] = {
     d.command: d
     for d in (
         VersionDecoder(),
         BatteryDecoder(),
+        InventoryDecoder(),
     )
 }
 
