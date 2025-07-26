@@ -314,14 +314,15 @@ class MainWindow(QMainWindow):
             {
                 "version_info": self.version_info,
                 "battery_info": self.battery_info,
+                "tag_counts": self.tag_counts,
             },
         )
         self.update_version_display()
         self.update_battery_display()
 
         # Payload lines were already logged as they arrived while collecting the
-        # response, so avoid logging them again here. Tag counts have also been
-        # updated at that time.
+        # response, so avoid logging them again here. Tag counts are updated by
+        # the inventory decoder when the response completes.
 
         if not self.current_silent:
             if resp.ok:

@@ -38,12 +38,14 @@ follow and the response terminates with either ``OK:`` or ``ER:``.  The
 ``parsers`` module provides a :class:`ResponseParser` that collects these lines
 and delegates decoding of the payload to command specific decoders.
 
-Two commands are currently understood:
+Three commands are currently understood:
 
 - ``.vr`` – returns firmware and hardware version information as ``FIELD:VALUE``
   pairs.  The fields are expanded to friendly names using ``VERSION_LABELS``.
 - ``.bl`` – reports battery statistics.  Fields such as ``BV`` (voltage) and
   ``BP`` (charge percentage) are normalised for display.
+- ``.iv`` – performs an inventory scan.  ``EP`` lines in the payload contain
+  EPC values which are tallied and displayed in the tag table.
 
 New commands can be supported by subclassing ``PayloadDecoder`` in
 ``parsers.py`` and adding the instance to the ``DECODERS`` registry.
