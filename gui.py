@@ -282,12 +282,9 @@ class MainWindow(QMainWindow):
         if battery_changed:
             self.update_battery_display()
 
-        for pl in resp.payload:
-            if not self.current_silent:
-                if ":" not in pl and re.fullmatch(r"[0-9A-Fa-f]+", pl.strip()):
-                    tag = pl.strip()
-                    self.tag_counts[tag] = self.tag_counts.get(tag, 0) + 1
-                self.log.append(f"<< {pl}")
+        # Payload lines were already logged as they arrived while collecting the
+        # response, so avoid logging them again here. Tag counts have also been
+        # updated at that time.
 
         if not self.current_silent:
             if resp.ok:
