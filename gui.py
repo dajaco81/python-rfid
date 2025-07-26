@@ -178,7 +178,14 @@ class MainWindow(QMainWindow):
         bt = []
         for p in ports:
             desc = (p.description or "").lower()
-            if "bluetooth" in desc:
+            dev = p.device.lower()
+            hwid = (p.hwid or "").lower()
+
+            if (
+                "bluetooth" in desc
+                or "bluetooth" in dev
+                or "bthenum" in hwid
+            ):
                 bt.append(p)
             else:
                 usb.append(p)
@@ -196,7 +203,10 @@ class MainWindow(QMainWindow):
                     if self._port_available(info.device)
                     else "unavailable"
                 )
-                txt = f"{info.device} — {info.description} ({status})"
+                desc = info.description or "n/a"
+                if desc.endswith(f"({info.device})"):
+                    desc = desc.rsplit("(", 1)[0].strip()
+                txt = f"{info.device} — {desc} ({status})"
                 self.combo.addItem(txt, info.device)
 
         _add_group("USB ports", usb)
@@ -204,6 +214,14 @@ class MainWindow(QMainWindow):
 
         if not ports:
             self.combo.addItem("<no ports>", "")
+
+        # Don't keep a previously selected index that might now refer to a
+        # disabled header. Select the first real port or nothing.
+        self.combo.setCurrentIndex(-1)
+        for i in range(self.combo.count()):
+            if self.combo.itemData(i):
+                self.combo.setCurrentIndex(i)
+                break
 
         if self.worker:
             self.worker.stop()
