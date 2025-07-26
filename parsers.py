@@ -45,8 +45,14 @@ class VersionDecoder(PayloadDecoder):
             if ":" not in line:
                 continue
             key, val = line.split(":", 1)
-            label = VERSION_LABELS.get(key.strip(), key.strip())
-            version_info[label] = val.strip()
+            field = key.strip()
+            label = VERSION_LABELS.get(field, field)
+            v = val.strip()
+
+            if field == "BV":
+                version_info[label] = f"{v}mV"
+            else:
+                version_info[label] = v
 
 
 class BatteryDecoder(PayloadDecoder):
@@ -67,12 +73,12 @@ class BatteryDecoder(PayloadDecoder):
             field = key.strip()
             label = BATTERY_LABELS.get(field, field)
             v = val.strip()
-            if field == "BV":
-                battery_info[label] = f"{v}mV"
-            elif field in ("PC", "BP"):
+
+            if field == "BP":
                 battery_info[label] = v if v.endswith("%") else f"{v}%"
             else:
                 battery_info[label] = v
+
 
 
 DECODERS: Dict[str, PayloadDecoder] = {
