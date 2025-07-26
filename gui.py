@@ -4,6 +4,7 @@ import sys
 import re
 import serial
 import serial.tools.list_ports
+import serial.tools.list_ports_common
 from PyQt5.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -161,17 +162,53 @@ class MainWindow(QMainWindow):
         self.version_info: dict[str, str] = {}
         self.battery_info: dict[str, str] = {}
 
+    @staticmethod
+    def _port_accessible(dev: str) -> bool:
+        """Return True if ``dev`` can be opened."""
+        try:
+            ser = serial.Serial(dev)
+            ser.close()
+            return True
+        except (serial.SerialException, OSError):
+            return False
+
     def refresh_ports(self):
-        """Rescan available serial ports."""
+        """Rescan available serial ports and categorize them."""
         ports = serial.tools.list_ports.comports()
-        self.combo.clear()
+        usb: list[serial.tools.list_ports_common.ListPortInfo] = []
+        bt: list[serial.tools.list_ports_common.ListPortInfo] = []
         for p in ports:
-            self.combo.addItem(f"{p.device} — {p.description}", p.device)
+            d = (p.description or "").lower()
+            hw = (p.hwid or "").lower()
+            if "bluetooth" in d or "bth" in hw or "rfcomm" in p.device.lower():
+                bt.append(p)
+            else:
+                usb.append(p)
+
+        self.combo.clear()
+
+        def _add_group(label, plist):
+            if not plist:
+                return
+            self.combo.addItem(label)
+            self.combo.model().item(self.combo.count() - 1).setEnabled(False)
+            for info in plist:
+                status = (
+                    "connected"
+                    if self._port_accessible(info.device)
+                    else "unavailable"
+                )
+                text = f"{info.device} ({status})"
+                idx = self.combo.count()
+                self.combo.addItem(text, info.device)
+                if info.description:
+                    self.combo.setItemData(idx, info.description)
+
+        _add_group("USB ports", usb)
+        _add_group("Bluetooth ports", bt)
+
         if not ports:
             self.combo.addItem("<no ports>", "")
-
-        items = [self.combo.itemText(i) for i in range(self.combo.count())]
-        self.log.append(f"🔄 Ports: {items}")
 
         if self.worker:
             self.worker.stop()
