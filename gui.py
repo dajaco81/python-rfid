@@ -116,8 +116,8 @@ class MainWindow(QMainWindow):
         self.strength_history_len = STRENGTH_HISTORY_LEN
         self.pending_tag: Optional[str] = None
         self.selected_tag: Optional[str] = None
-        self.table = QTableWidget(0, 2)
-        self.table.setHorizontalHeaderLabels(["Tag", "Count"])
+        self.table = QTableWidget(0, 3)
+        self.table.setHorizontalHeaderLabels(["Tag", "Count", "Max Strength"])
         self.table.itemSelectionChanged.connect(self.on_table_selection_changed)
         left_layout.addWidget(self.table)
 
@@ -375,11 +375,14 @@ class MainWindow(QMainWindow):
         self.update_table()
 
     def update_table(self):
-        """Update the table with tag counts."""
+        """Update the table with tag counts and max strength."""
         self.table.setRowCount(len(self.tag_counts))
         for r, (tag, count) in enumerate(self.tag_counts.items()):
             self.table.setItem(r, 0, QTableWidgetItem(tag))
             self.table.setItem(r, 1, QTableWidgetItem(str(count)))
+            strengths = [v for v in self.tag_strengths.get(tag, []) if v is not None]
+            max_val = max(strengths) if strengths else ""
+            self.table.setItem(r, 2, QTableWidgetItem(str(max_val)))
 
     def update_version_display(self):
         """Display collected version information."""
@@ -454,6 +457,7 @@ class MainWindow(QMainWindow):
                             hist.pop(0)
                 if self.selected_tag == self.pending_tag:
                     self.update_strength_plot()
+            self.update_table()
             self.pending_tag = None
 
     def update_progress(self):
