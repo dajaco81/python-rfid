@@ -301,7 +301,7 @@ class MainWindow(QMainWindow):
         self.tag_strengths.clear()
         self.update_table()
         self.update_strength_plot()
-        setup_cmd = ".iv -r on -e off -c off -dt off -ix off -qa dyn -qs s1 -tf on -o 29 -n"
+        setup_cmd = ".iv -r on -e off -c off -dt off -ix off -qa dyn -qs s1 -tf on -o 29 -al off -n"
         self.send_command(setup_cmd, silent=True)
         self.scanning = True
         if self.poll_enabled:
