@@ -26,6 +26,7 @@ from typing import Optional
 
 from serial_worker import SerialWorker
 from parsers import ResponseParser, parse_payload
+from constants import STRENGTH_HISTORY_LEN
 
 
 class MplCanvas(FigureCanvas):
@@ -111,7 +112,8 @@ class MainWindow(QMainWindow):
 
         self.tag_counts = {}
         self.tag_strengths: dict[str, list[float]] = {}
-        self.strength_history_len = 50
+        # Maximum number of signal strength samples to retain per tag
+        self.strength_history_len = STRENGTH_HISTORY_LEN
         self.pending_tag: Optional[str] = None
         self.selected_tag: Optional[str] = None
         self.table = QTableWidget(0, 2)

@@ -11,7 +11,7 @@ from typing import Dict, List, Optional
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from constants import VERSION_LABELS, BATTERY_LABELS
+from constants import VERSION_LABELS, BATTERY_LABELS, STRENGTH_HISTORY_LEN
 
 
 DecoderContext = Dict[str, Dict[str, str]]
@@ -78,7 +78,8 @@ class InventoryDecoder(PayloadDecoder):
     command = ".iv"
     count_target = "tag_counts"
     strength_target = "tag_strengths"
-    history_len = 50
+    # Maximum number of signal strength samples to retain per tag
+    history_len = STRENGTH_HISTORY_LEN
 
     def parse(self, lines: List[str], context: DecoderContext) -> None:
         counts = context.setdefault(self.count_target, {})
