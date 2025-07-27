@@ -110,6 +110,10 @@ class MainWindow(QMainWindow):
         b_clear.clicked.connect(self.clear_console)
         left_layout.addWidget(b_clear)
 
+        b_clear_table = QPushButton("Clear Tags")
+        b_clear_table.clicked.connect(self.clear_table)
+        left_layout.addWidget(b_clear_table)
+
         self.tag_counts = {}
         self.tag_strengths: dict[str, list[float]] = {}
         # Maximum number of signal strength samples to retain per tag
@@ -277,6 +281,13 @@ class MainWindow(QMainWindow):
     def clear_console(self):
         """Clear the log output area."""
         self.log.clear()
+
+    def clear_table(self) -> None:
+        """Remove all tags from the table and reset history."""
+        self.tag_counts.clear()
+        self.tag_strengths.clear()
+        self.update_table()
+        self.update_strength_plot()
 
     def send_command(self, cmd: str, silent: bool = False):
         """Send a command string to the reader."""
