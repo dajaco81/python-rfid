@@ -18,3 +18,6 @@ BATTERY_LABELS = {
     "BP": "Charge level",
     "CH": "Charging state",
 }
+
+# Maximum number of signal strength samples to retain per tag
+STRENGTH_HISTORY_LEN = 20
