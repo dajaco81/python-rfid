@@ -79,6 +79,11 @@ class MainWindow(QMainWindow):
         self.poll_toggle.setChecked(True)
         self.poll_toggle.clicked.connect(self.toggle_polling)
         h0.addWidget(self.poll_toggle)
+        self.session_toggle = QPushButton("Quiet Tags")
+        self.session_toggle.setCheckable(True)
+        self.session_toggle.setChecked(False)
+        self.session_toggle.toggled.connect(self.toggle_session)
+        h0.addWidget(self.session_toggle)
         left_layout.addLayout(h0)
 
         # Shortcuts
@@ -124,6 +129,14 @@ class MainWindow(QMainWindow):
         self.table.setHorizontalHeaderLabels(["Tag", "Count", "Max Strength"])
         self.table.itemSelectionChanged.connect(self.on_table_selection_changed)
         left_layout.addWidget(self.table)
+        h_filter = QHBoxLayout()
+        b_filter = QPushButton("Filter Tag")
+        b_filter.clicked.connect(self.filter_selected_tag)
+        h_filter.addWidget(b_filter)
+        b_clear_filter = QPushButton("Clear Filter")
+        b_clear_filter.clicked.connect(self.clear_tag_filter)
+        h_filter.addWidget(b_clear_filter)
+        left_layout.addLayout(h_filter)
 
         # Right side info containers
         right_layout.addWidget(QLabel("Version"))
@@ -289,6 +302,26 @@ class MainWindow(QMainWindow):
         self.update_table()
         self.update_strength_plot()
 
+    def filter_selected_tag(self) -> None:
+        """Apply a tag ID filter using the currently selected tag."""
+        if not self.worker:
+            self.log.append("⚠️ Not connected")
+            return
+        if not self.selected_tag:
+            self.log.append("⚠️ No tag selected")
+            return
+        tag = self.selected_tag
+        length = len(tag) * 4
+        cmd = f".fi -s 0 -a 0 -b epc -o 32 -l {length} -m {tag}"
+        self.send_command(cmd)
+
+    def clear_tag_filter(self) -> None:
+        """Clear any active tag ID filter."""
+        if not self.worker:
+            self.log.append("⚠️ Not connected")
+            return
+        self.send_command(".fi -s 0 -r")
+
     def send_command(self, cmd: str, silent: bool = False):
         """Send a command string to the reader."""
         cmd = cmd.strip()
@@ -307,6 +340,18 @@ class MainWindow(QMainWindow):
         self.worker.write(cmd, not silent)
         self.input.clear()
 
+    def send_inventory_setup(self) -> None:
+        """Configure inventory command based on session toggle."""
+        session = "s0" if self.session_toggle.isChecked() else "s1"
+        setup_cmd = f".iv -r on -e off -c off -dt off -ix off -qa dyn -qs {session} -tf on -o 29 -al off -n"
+        self.send_command(setup_cmd, silent=True)
+
+    def toggle_session(self, checked: bool) -> None:
+        """Switch between quiet and zero-persistence modes."""
+        self.session_toggle.setText("Zero Persistence" if checked else "Quiet Tags")
+        if self.worker:
+            self.send_inventory_setup()
+
     def on_connected(self, port: str):
         """Handle reader connection."""
         self.log.append(f"✅ Connected to {port}")
@@ -314,8 +359,7 @@ class MainWindow(QMainWindow):
         self.tag_strengths.clear()
         self.update_table()
         self.update_strength_plot()
-        setup_cmd = ".iv -r on -e off -c off -dt off -ix off -qa dyn -qs s1 -tf on -o 29 -al off -n"
-        self.send_command(setup_cmd, silent=True)
+        self.send_inventory_setup()
         self.scanning = True
         if self.poll_enabled:
             self.poll_status()
