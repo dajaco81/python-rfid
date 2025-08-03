@@ -50,3 +50,13 @@ Three commands are currently understood:
 
 New commands can be supported by subclassing ``PayloadDecoder`` in
 ``parsers.py`` and adding the instance to the ``DECODERS`` registry.
+
+### Tag options
+
+The GUI provides a **Zero Persistence** toggle that switches the reader to
+Session&nbsp;0 for continuous tag strength updates.  In the default state the
+reader uses Session&nbsp;1, causing tags to fall silent briefly after each
+read.
+
+Select a tag in the table and click **Filter Tag** to have the reader observe
+only that tag.  Use **Clear Filter** to remove the filter.
