@@ -121,12 +121,14 @@ class MainWindow(QMainWindow):
 
         self.tag_counts = {}
         self.tag_strengths: dict[str, list[float]] = {}
+        self.tag_min_strengths: dict[str, float] = {}
+        self.tag_max_strengths: dict[str, float] = {}
         # Maximum number of signal strength samples to retain per tag
         self.strength_history_len = STRENGTH_HISTORY_LEN
         self.pending_tag: Optional[str] = None
         self.selected_tag: Optional[str] = None
-        self.table = QTableWidget(0, 3)
-        self.table.setHorizontalHeaderLabels(["Tag", "Count", "Max Strength"])
+        self.table = QTableWidget(0, 4)
+        self.table.setHorizontalHeaderLabels(["Tag", "Count", "Min Strength", "Max Strength"])
         self.table.itemSelectionChanged.connect(self.on_table_selection_changed)
         left_layout.addWidget(self.table)
         h_filter = QHBoxLayout()
@@ -299,6 +301,8 @@ class MainWindow(QMainWindow):
         """Remove all tags from the table and reset history."""
         self.tag_counts.clear()
         self.tag_strengths.clear()
+        self.tag_min_strengths.clear()
+        self.tag_max_strengths.clear()
         self.update_table()
         self.update_strength_plot()
 
@@ -408,6 +412,8 @@ class MainWindow(QMainWindow):
                 "battery_info": self.battery_info,
                 "tag_counts": self.tag_counts,
                 "tag_strengths": self.tag_strengths,
+                "tag_min_strengths": self.tag_min_strengths,
+                "tag_max_strengths": self.tag_max_strengths,
             },
         )
         self.update_version_display()
@@ -430,14 +436,15 @@ class MainWindow(QMainWindow):
         self.update_table()
 
     def update_table(self):
-        """Update the table with tag counts and max strength."""
+        """Update the table with tag counts and min/max strength."""
         self.table.setRowCount(len(self.tag_counts))
         for r, (tag, count) in enumerate(self.tag_counts.items()):
             self.table.setItem(r, 0, QTableWidgetItem(tag))
             self.table.setItem(r, 1, QTableWidgetItem(str(count)))
-            strengths = [v for v in self.tag_strengths.get(tag, []) if v is not None]
-            max_val = max(strengths) if strengths else ""
-            self.table.setItem(r, 2, QTableWidgetItem(str(max_val)))
+            min_val = self.tag_min_strengths.get(tag, "")
+            max_val = self.tag_max_strengths.get(tag, "")
+            self.table.setItem(r, 2, QTableWidgetItem(str(min_val)))
+            self.table.setItem(r, 3, QTableWidgetItem(str(max_val)))
 
     def update_version_display(self):
         """Display collected version information."""
@@ -510,6 +517,13 @@ class MainWindow(QMainWindow):
                         hist.append(strength)
                         if len(hist) > self.strength_history_len:
                             hist.pop(0)
+                if strength is not None:
+                    cur_min = self.tag_min_strengths.get(self.pending_tag)
+                    if cur_min is None or strength < cur_min:
+                        self.tag_min_strengths[self.pending_tag] = strength
+                    cur_max = self.tag_max_strengths.get(self.pending_tag)
+                    if cur_max is None or strength > cur_max:
+                        self.tag_max_strengths[self.pending_tag] = strength
                 if self.selected_tag == self.pending_tag:
                     self.update_strength_plot()
             self.update_table()
