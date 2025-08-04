@@ -26,6 +26,7 @@ from typing import Optional
 
 from serial_worker import SerialWorker
 from parsers import ResponseParser, parse_payload
+from utils import strength_to_percentage
 from constants import STRENGTH_HISTORY_LEN
 
 
@@ -441,10 +442,12 @@ class MainWindow(QMainWindow):
         for r, (tag, count) in enumerate(self.tag_counts.items()):
             self.table.setItem(r, 0, QTableWidgetItem(tag))
             self.table.setItem(r, 1, QTableWidgetItem(str(count)))
-            min_val = self.tag_min_strengths.get(tag, "")
-            max_val = self.tag_max_strengths.get(tag, "")
-            self.table.setItem(r, 2, QTableWidgetItem(str(min_val)))
-            self.table.setItem(r, 3, QTableWidgetItem(str(max_val)))
+            min_val = self.tag_min_strengths.get(tag)
+            max_val = self.tag_max_strengths.get(tag)
+            min_txt = f"{min_val}%" if isinstance(min_val, (int, float)) else ""
+            max_txt = f"{max_val}%" if isinstance(max_val, (int, float)) else ""
+            self.table.setItem(r, 2, QTableWidgetItem(min_txt))
+            self.table.setItem(r, 3, QTableWidgetItem(max_txt))
 
     def update_version_display(self):
         """Display collected version information."""
@@ -479,9 +482,9 @@ class MainWindow(QMainWindow):
         ax.cla()
         if data:
             ax.plot(range(len(data)), data, marker="o")
-            ax.set_ylim(min(data) - 1, max(data) + 1)
+            ax.set_ylim(0, 100)
         ax.set_xlabel("Read")
-        ax.set_ylabel("Signal strength")
+        ax.set_ylabel("Signal strength (%)")
         self.strength_canvas.draw()
 
     def handle_inventory_line(self, line: str) -> None:
@@ -508,6 +511,8 @@ class MainWindow(QMainWindow):
                     strength = float(val_str)
                 except ValueError:
                     strength = None
+            if strength is not None:
+                strength = strength_to_percentage(strength)
             if self.pending_tag:
                 hist = self.tag_strengths.setdefault(self.pending_tag, [])
                 if hist:

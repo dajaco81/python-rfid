@@ -12,6 +12,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from constants import VERSION_LABELS, BATTERY_LABELS, STRENGTH_HISTORY_LEN
+from utils import strength_to_percentage
 
 
 DecoderContext = Dict[str, Dict[str, str]]
@@ -108,6 +109,8 @@ class InventoryDecoder(PayloadDecoder):
                         strength = float(val_str)
                     except ValueError:
                         strength = None
+                if strength is not None:
+                    strength = strength_to_percentage(strength)
                 if last_tag:
                     hist = strengths.setdefault(last_tag, [])
                     if hist:
