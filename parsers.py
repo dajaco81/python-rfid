@@ -78,12 +78,16 @@ class InventoryDecoder(PayloadDecoder):
     command = ".iv"
     count_target = "tag_counts"
     strength_target = "tag_strengths"
+    min_strength_target = "tag_min_strengths"
+    max_strength_target = "tag_max_strengths"
     # Maximum number of signal strength samples to retain per tag
     history_len = STRENGTH_HISTORY_LEN
 
     def parse(self, lines: List[str], context: DecoderContext) -> None:
         counts = context.setdefault(self.count_target, {})
         strengths = context.setdefault(self.strength_target, {})
+        mins = context.setdefault(self.min_strength_target, {})
+        maxs = context.setdefault(self.max_strength_target, {})
         last_tag: Optional[str] = None
         for line in lines:
             if line.startswith("EP:"):
@@ -113,6 +117,13 @@ class InventoryDecoder(PayloadDecoder):
                             hist.append(strength)
                             if len(hist) > self.history_len:
                                 hist.pop(0)
+                    if strength is not None:
+                        cur_min = mins.get(last_tag)
+                        cur_max = maxs.get(last_tag)
+                        if cur_min is None or strength < cur_min:
+                            mins[last_tag] = strength
+                        if cur_max is None or strength > cur_max:
+                            maxs[last_tag] = strength
                 last_tag = None
 
 

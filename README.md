@@ -60,3 +60,7 @@ read.
 
 Select a tag in the table and click **Filter Tag** to have the reader observe
 only that tag.  Use **Clear Filter** to remove the filter.
+
+The tag table tracks the minimum and maximum signal strength seen for each
+tag. These values persist regardless of the limited history buffer and reset
+when **Clear Tags** is used.
