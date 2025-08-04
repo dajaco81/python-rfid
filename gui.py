@@ -312,7 +312,7 @@ class MainWindow(QMainWindow):
             return
         tag = self.selected_tag
         length = len(tag) * 4
-        cmd = f".fi -s 0 -a 0 -b epc -o 32 -l {length} -m {tag}"
+        cmd = f".iv -s 0 -a 0 -b epc -o 29 -l {length} -m {tag}"
         self.send_command(cmd)
 
     def clear_tag_filter(self) -> None:
@@ -320,7 +320,7 @@ class MainWindow(QMainWindow):
         if not self.worker:
             self.log.append("⚠️ Not connected")
             return
-        self.send_command(".fi -s 0 -r")
+        self.send_command(".iv -s 0 -r")
 
     def send_command(self, cmd: str, silent: bool = False):
         """Send a command string to the reader."""

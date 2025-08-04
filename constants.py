@@ -20,4 +20,4 @@ BATTERY_LABELS = {
 }
 
 # Maximum number of signal strength samples to retain per tag
-STRENGTH_HISTORY_LEN = 20
+STRENGTH_HISTORY_LEN = 100
