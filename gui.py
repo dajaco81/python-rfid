@@ -2,9 +2,9 @@
 
 import sys
 import re
-import serial # type: ignore
-import serial.tools.list_ports # type: ignore
-from PyQt5.QtWidgets import ( # type: ignore
+import serial
+import serial.tools.list_ports
+from PyQt5.QtWidgets import (
     QApplication,
     QMainWindow,
     QWidget,
@@ -19,9 +19,9 @@ from PyQt5.QtWidgets import ( # type: ignore
     QTableWidgetItem,
     QProgressBar,
 )
-from PyQt5.QtCore import QTimer # type: ignore
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas # type: ignore
-from matplotlib.figure import Figure # type: ignore
+from PyQt5.QtCore import QTimer
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
 from typing import Optional
 
 from serial_worker import SerialWorker
