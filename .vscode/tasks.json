@@ -1,0 +1,18 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run run.py",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "-c",
+        "import os, sys; f='run.py'; (os.system(f'python {f}') if os.path.exists(f) else print(f'{f} not found'))"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}
