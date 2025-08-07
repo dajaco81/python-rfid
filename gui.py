@@ -9,7 +9,6 @@ import serial.tools.list_ports
 from PyQt5.QtWidgets import (
     QApplication,
     QMainWindow,
-    QWidget,
     QLabel,
     QLayout,
     QPushButton,
@@ -79,12 +78,12 @@ class DebugLayoutWrapper(Generic[LayoutT]):
             self._frame.setFrameShape(QFrame.NoFrame)
             self._frame.setAutoFillBackground(False)
 
-    def attachTo(self, parent_layout):
+    def attachTo(self, parent_layout, *args, **kwargs):
         """Attach to parent layout in the appropriate form."""
         if self._debug:
-            parent_layout.addWidget(self._frame)
+            parent_layout.addWidget(self._frame, *args, **kwargs)
         else:
-            parent_layout.addLayout(self.layout)
+            parent_layout.addLayout(self.layout, *args, **kwargs)
 
 class MainWindow(QMainWindow):
     """Primary application window."""
@@ -95,16 +94,16 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("TSL 1128 Interface")
         self.resize(1200, 800)
 
-        w = QWidget()
-        self.setCentralWidget(w)
-        root = QHBoxLayout(w)
-        left_layout = QVBoxLayout()
-        root.addLayout(left_layout, 1)
-        right_layout = QVBoxLayout()
-        root.addLayout(right_layout)
+        colors = iter(["#fcc", "#cfc", "#ccf", "#fcf", "#cff", "#ffc", "#f9c", "#9cf", "#c9f", "#9fc"])
+        root = DebugLayoutWrapper(QHBoxLayout, debug=True, color=next(colors))
+        self.setCentralWidget(root._frame)
+        left_layout = DebugLayoutWrapper(QVBoxLayout, debug=True, color=next(colors))
+        left_layout.attachTo(root, 1)
+        right_layout = DebugLayoutWrapper(QVBoxLayout, debug=True, color=next(colors))
+        right_layout.attachTo(root)
 
         # Port selector + Refresh
-        h1 = DebugLayoutWrapper(QHBoxLayout, debug=True)
+        h1 = DebugLayoutWrapper(QHBoxLayout, debug=True, color=next(colors))
         h1.addWidget(QLabel("Port:"))
         self.combo = QComboBox()
         h1.addWidget(self.combo)
@@ -114,7 +113,7 @@ class MainWindow(QMainWindow):
         h1.attachTo(left_layout)
 
         # Connect/Disconnect
-        h0 = QHBoxLayout()
+        h0 = DebugLayoutWrapper(QHBoxLayout, debug=True, color=next(colors))
         for name, slot in [
             ("Connect", self.connect_serial),
             ("Disconnect", self.disconnect_serial),
@@ -132,10 +131,10 @@ class MainWindow(QMainWindow):
         self.session_toggle.setChecked(False)
         self.session_toggle.toggled.connect(self.toggle_session)
         h0.addWidget(self.session_toggle)
-        left_layout.addLayout(h0)
+        h0.attachTo(left_layout)
 
         # Shortcuts
-        h2 = QHBoxLayout()
+        h2 = DebugLayoutWrapper(QHBoxLayout, debug=True, color=next(colors))
         for txt, cmd in [
             ("Version", ".vr"),
             ("Battery", ".bl"),
@@ -144,17 +143,17 @@ class MainWindow(QMainWindow):
             btn = QPushButton(txt)
             btn.clicked.connect(lambda _, c=cmd: self.send_command(c))
             h2.addWidget(btn)
-        left_layout.addLayout(h2)
+        h2.attachTo(left_layout)
 
         # Manual
-        h3 = QHBoxLayout()
+        h3 = DebugLayoutWrapper(QHBoxLayout, debug=True, color=next(colors))
         h3.addWidget(QLabel("Command:"))
         self.input = QLineEdit()
         h3.addWidget(self.input)
         b_send = QPushButton("Send")
         b_send.clicked.connect(lambda: self.send_command(self.input.text()))
         h3.addWidget(b_send)
-        left_layout.addLayout(h3)
+        h3.attachTo(left_layout)
 
         # Log + Table
         self.log = QTextEdit(readOnly=True)
@@ -179,18 +178,18 @@ class MainWindow(QMainWindow):
         self.table.setHorizontalHeaderLabels(["Tag", "Count", "Min Strength", "Max Strength"])
         self.table.itemSelectionChanged.connect(self.on_table_selection_changed)
         left_layout.addWidget(self.table)
-        h_filter = QHBoxLayout()
+        h_filter = DebugLayoutWrapper(QHBoxLayout, debug=True, color=next(colors))
         b_filter = QPushButton("Filter Tag")
         b_filter.clicked.connect(self.filter_selected_tag)
         h_filter.addWidget(b_filter)
         b_clear_filter = QPushButton("Clear Filter")
         b_clear_filter.clicked.connect(self.clear_tag_filter)
         h_filter.addWidget(b_clear_filter)
-        left_layout.addLayout(h_filter)
+        h_filter.attachTo(left_layout)
 
         # Right side info containers
         right_layout.addWidget(QLabel("Version"))
-        version_container = QVBoxLayout()
+        version_container = DebugLayoutWrapper(QVBoxLayout, debug=True, color=next(colors))
         self.version_bar = QProgressBar()
         self.version_bar.setTextVisible(False)
         self.version_bar.setFixedHeight(4)
@@ -203,10 +202,10 @@ class MainWindow(QMainWindow):
         version_container.addWidget(self.version_bar)
         self.version_display = QTextEdit(readOnly=True)
         version_container.addWidget(self.version_display)
-        right_layout.addLayout(version_container)
+        version_container.attachTo(right_layout)
 
         right_layout.addWidget(QLabel("Battery"))
-        battery_container = QVBoxLayout()
+        battery_container = DebugLayoutWrapper(QVBoxLayout, debug=True, color=next(colors))
         self.battery_bar = QProgressBar()
         self.battery_bar.setTextVisible(False)
         self.battery_bar.setFixedHeight(4)
@@ -219,7 +218,7 @@ class MainWindow(QMainWindow):
         battery_container.addWidget(self.battery_bar)
         self.battery_display = QTextEdit(readOnly=True)
         battery_container.addWidget(self.battery_display)
-        right_layout.addLayout(battery_container)
+        battery_container.attachTo(right_layout)
 
         right_layout.addWidget(QLabel("Signal Strength"))
         self.strength_canvas = MplCanvas()
