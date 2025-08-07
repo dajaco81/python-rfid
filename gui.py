@@ -22,9 +22,10 @@ from PyQt5.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QProgressBar,
+    QCheckBox,
 )
 from PyQt5.QtCore import QTimer, Qt
-from PyQt5.QtGui import QColor
+from PyQt5.QtGui import QColor, QPainter
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -86,6 +87,29 @@ class DebugLayoutWrapper(Generic[LayoutT]):
         else:
             parent_layout.addLayout(self.layout)
 
+
+class ToggleSwitch(QCheckBox):
+    """A simple on/off switch with a modern appearance."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setFixedSize(50, 25)
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        rect = self.rect()
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor("#4cd964") if self.isChecked() else QColor("#ccc"))
+        radius = rect.height() / 2
+        p.drawRoundedRect(0, 0, rect.width(), rect.height(), radius, radius)
+        knob_diam = rect.height() - 4
+        knob_x = rect.width() - knob_diam - 2 if self.isChecked() else 2
+        p.setBrush(Qt.white)
+        p.drawEllipse(knob_x, 2, knob_diam, knob_diam)
+        p.end()
+
 class MainWindow(QMainWindow):
     """Primary application window."""
 
@@ -122,13 +146,15 @@ class MainWindow(QMainWindow):
             b = QPushButton(name)
             b.clicked.connect(slot)
             h0.addWidget(b)
-        self.poll_toggle = QPushButton("Polling On")
-        self.poll_toggle.setCheckable(True)
+        self.poll_label = QLabel("Polling")
+        h0.addWidget(self.poll_label)
+        self.poll_toggle = ToggleSwitch()
         self.poll_toggle.setChecked(True)
-        self.poll_toggle.clicked.connect(self.toggle_polling)
+        self.poll_toggle.toggled.connect(self.toggle_polling)
         h0.addWidget(self.poll_toggle)
-        self.session_toggle = QPushButton("Quiet Tags")
-        self.session_toggle.setCheckable(True)
+        self.session_label = QLabel("Quiet Tags")
+        h0.addWidget(self.session_label)
+        self.session_toggle = ToggleSwitch()
         self.session_toggle.setChecked(False)
         self.session_toggle.toggled.connect(self.toggle_session)
         h0.addWidget(self.session_toggle)
@@ -331,7 +357,6 @@ class MainWindow(QMainWindow):
     def toggle_polling(self):
         """Turn automatic status polling on or off."""
         self.poll_enabled = self.poll_toggle.isChecked()
-        self.poll_toggle.setText("Polling On" if self.poll_enabled else "Polling Off")
         if self.poll_enabled and self.worker:
             self.poll_status()
 
@@ -400,7 +425,7 @@ class MainWindow(QMainWindow):
 
     def toggle_session(self, checked: bool) -> None:
         """Switch between quiet and zero-persistence modes."""
-        self.session_toggle.setText("Zero Persistence" if checked else "Quiet Tags")
+        self.session_label.setText("Zero Persistence" if checked else "Quiet Tags")
         if self.worker:
             self.send_inventory_setup()
 
