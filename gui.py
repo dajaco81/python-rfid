@@ -22,9 +22,10 @@ from PyQt5.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QProgressBar,
+    QCheckBox,
 )
-from PyQt5.QtCore import QTimer, Qt
-from PyQt5.QtGui import QColor
+from PyQt5.QtCore import QTimer, Qt, QSize
+from PyQt5.QtGui import QColor, QPainter
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -105,6 +106,31 @@ class DebugHBoxLayout(DebugLayoutMixin, QHBoxLayout):
     def __init__(self, *args, debug: bool = False, color: str = "#eef", **kwargs):
         super().__init__(*args, debug=debug, color=color, **kwargs)
 
+
+class ToggleSwitch(QCheckBox):
+    """Minimal checkable switch styled with custom painting."""
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setFixedSize(40, 20)
+
+    def sizeHint(self):  # type: ignore[override]
+        return QSize(40, 20)
+
+    def paintEvent(self, event):  # type: ignore[override]
+        radius = 10
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor("#4cd964") if self.isChecked() else QColor("#bbb"))
+        painter.drawRoundedRect(0, 0, self.width(), self.height(), radius, radius)
+        knob_r = radius - 2
+        x = self.width() - knob_r * 2 - 2 if self.isChecked() else 2
+        painter.setBrush(QColor("#fff"))
+        painter.drawEllipse(x, 2, knob_r * 2, knob_r * 2)
+        painter.end()
+
 class MainWindow(QMainWindow):
     """Primary application window."""
 
@@ -141,15 +167,17 @@ class MainWindow(QMainWindow):
             b = QPushButton(name)
             b.clicked.connect(slot)
             h0.addWidget(b)
-        self.poll_toggle = QPushButton("Polling On")
-        self.poll_toggle.setCheckable(True)
+        self.poll_label = QLabel("Polling On")
+        self.poll_toggle = ToggleSwitch()
         self.poll_toggle.setChecked(True)
-        self.poll_toggle.clicked.connect(self.toggle_polling)
+        self.poll_toggle.toggled.connect(self.toggle_polling)
+        h0.addWidget(self.poll_label)
         h0.addWidget(self.poll_toggle)
-        self.session_toggle = QPushButton("Quiet Tags")
-        self.session_toggle.setCheckable(True)
+        self.session_label = QLabel("Quiet Tags")
+        self.session_toggle = ToggleSwitch()
         self.session_toggle.setChecked(False)
         self.session_toggle.toggled.connect(self.toggle_session)
+        h0.addWidget(self.session_label)
         h0.addWidget(self.session_toggle)
         h0.attachTo(left_layout)
 
@@ -350,7 +378,7 @@ class MainWindow(QMainWindow):
     def toggle_polling(self):
         """Turn automatic status polling on or off."""
         self.poll_enabled = self.poll_toggle.isChecked()
-        self.poll_toggle.setText("Polling On" if self.poll_enabled else "Polling Off")
+        self.poll_label.setText("Polling On" if self.poll_enabled else "Polling Off")
         if self.poll_enabled and self.worker:
             self.poll_status()
 
@@ -419,7 +447,7 @@ class MainWindow(QMainWindow):
 
     def toggle_session(self, checked: bool) -> None:
         """Switch between quiet and zero-persistence modes."""
-        self.session_toggle.setText("Zero Persistence" if checked else "Quiet Tags")
+        self.session_label.setText("Zero Persistence" if checked else "Quiet Tags")
         if self.worker:
             self.send_inventory_setup()
 
