@@ -75,6 +75,20 @@ class DebugLayoutMixin:
         else:
             parent_layout.addLayout(self)
 
+class c:
+    red     = "#ffb3b3"
+    green   = "#b3ffcc"
+    blue    = "#b3d9ff"
+    yellow  = "#fff5b3"
+    orange  = "#ffd9b3"
+    purple  = "#e0b3ff"
+    pink    = "#ffccf2"
+    cyan    = "#b3ffff"
+    mint    = "#ccffe6"
+    gray    = "#e6e6e6"
+    white   = "#ffffff"
+    black   = "#000000"
+
 
 class DebugHBoxLayout(DebugLayoutMixin, QHBoxLayout):
     """QHBoxLayout with optional debug border."""
@@ -100,7 +114,7 @@ class MainWindow(QMainWindow):
         root.addLayout(right_layout)
 
         # Port selector + Refresh
-        h1 = DebugHBoxLayout(debug=True)
+        h1 = DebugHBoxLayout(debug=False, color=c.red)
         h1.addWidget(QLabel("Port:"))
         self.combo = QComboBox()
         h1.addWidget(self.combo)
@@ -110,7 +124,7 @@ class MainWindow(QMainWindow):
         h1.attachTo(left_layout)
 
         # Connect/Disconnect
-        h0 = QHBoxLayout()
+        h0 = DebugHBoxLayout(debug=True, color=c.blue)
         for name, slot in [
             ("Connect", self.connect_serial),
             ("Disconnect", self.disconnect_serial),
@@ -128,7 +142,7 @@ class MainWindow(QMainWindow):
         self.session_toggle.setChecked(False)
         self.session_toggle.toggled.connect(self.toggle_session)
         h0.addWidget(self.session_toggle)
-        left_layout.addLayout(h0)
+        h0.attachTo(left_layout)
 
         # Shortcuts
         h2 = QHBoxLayout()
