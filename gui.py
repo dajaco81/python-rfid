@@ -27,7 +27,7 @@ from PyQt5.QtCore import QTimer, Qt
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from typing import TypeVar, Generic, Optional
+from typing import Optional
 
 from serial_worker import SerialWorker
 from parsers import ResponseParser, parse_payload
@@ -44,39 +44,43 @@ class MplCanvas(FigureCanvas):
         super().__init__(fig)
         self.axes = fig.add_subplot(111)
 
-LayoutT = TypeVar("LayoutT", bound=QLayout)
+class DebugLayoutMixin:
+    """Mixin adding optional debug framing to layouts."""
 
-class DebugLayoutWrapper(Generic[LayoutT]):
-    def __init__(self, layout_cls: type[LayoutT], debug=False, color="#eef"):
-        self.layout: LayoutT = layout_cls()
+    def __init__(self, *args, debug: bool = False, color: str = "#eef", **kwargs):
+        super().__init__(*args, **kwargs)
         self._debug = debug
-        self._frame = None
-
+        self._color = color
+        self._frame: Optional[QFrame] = None
         if debug:
             self._frame = QFrame()
             self._frame.setFrameShape(QFrame.Box)
             self._frame.setStyleSheet(f"background-color: {color};")
-            self._frame.setLayout(self.layout)
+            self._frame.setLayout(self)
 
-    def __getattr__(self, name):
-        return getattr(self.layout, name)
-
-    def showBorder(self):
+    def showBorder(self) -> None:
         if self._frame:
             self._frame.setFrameShape(QFrame.Box)
             self._frame.setStyleSheet(f"background-color: {self._color};")
 
-    def hideBorder(self):
+    def hideBorder(self) -> None:
         if self._frame:
             self._frame.setFrameShape(QFrame.NoFrame)
             self._frame.setStyleSheet("")
 
-    def attachTo(self, parent_layout):
+    def attachTo(self, parent_layout: QLayout) -> None:
         """Attach to parent layout in the appropriate form."""
-        if self._debug:
+        if self._debug and self._frame is not None:
             parent_layout.addWidget(self._frame)
         else:
-            parent_layout.addLayout(self.layout)
+            parent_layout.addLayout(self)
+
+
+class DebugHBoxLayout(DebugLayoutMixin, QHBoxLayout):
+    """QHBoxLayout with optional debug border."""
+
+    def __init__(self, *args, debug: bool = False, color: str = "#eef", **kwargs):
+        super().__init__(*args, debug=debug, color=color, **kwargs)
 
 class MainWindow(QMainWindow):
     """Primary application window."""
@@ -96,7 +100,7 @@ class MainWindow(QMainWindow):
         root.addLayout(right_layout)
 
         # Port selector + Refresh
-        h1 = DebugLayoutWrapper(QHBoxLayout, debug=True)
+        h1 = DebugHBoxLayout(debug=True)
         h1.addWidget(QLabel("Port:"))
         self.combo = QComboBox()
         h1.addWidget(self.combo)
