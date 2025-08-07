@@ -154,7 +154,7 @@ class MainWindow(QMainWindow):
         h0.attachTo(left_layout)
 
         # Shortcuts
-        h2 = QHBoxLayout()
+        h2 = DebugHBoxLayout(debug=True, color=c.cyan)
         for txt, cmd in [
             ("Version", ".vr"),
             ("Battery", ".bl"),
@@ -163,17 +163,17 @@ class MainWindow(QMainWindow):
             btn = QPushButton(txt)
             btn.clicked.connect(lambda _, c=cmd: self.send_command(c))
             h2.addWidget(btn)
-        left_layout.addLayout(h2)
+        h2.attachTo(left_layout)
 
         # Manual
-        h3 = QHBoxLayout()
+        h3 = DebugHBoxLayout(debug=True, color=c.orange)
         h3.addWidget(QLabel("Command:"))
         self.input = QLineEdit()
         h3.addWidget(self.input)
         b_send = QPushButton("Send")
         b_send.clicked.connect(lambda: self.send_command(self.input.text()))
         h3.addWidget(b_send)
-        left_layout.addLayout(h3)
+        h3.attachTo(left_layout)
 
         # Log + Table
         self.log = QTextEdit(readOnly=True)
