@@ -344,6 +344,8 @@ class MainWindow(QMainWindow):
         """Stop the worker and reset the UI."""
         if self.worker:
             self.auto_reconnect = False
+            # Tell the reader we're disconnecting so it can sleep
+            self.send_command(".dc", silent=True)
             self.worker.stop()
             self.worker = None
         self.reconnecting = False
@@ -425,7 +427,12 @@ class MainWindow(QMainWindow):
 
     def on_disconnected(self):
         """Handle reader disconnection."""
-        self.log.append("🔌 Disconnected")
+        if self.auto_reconnect:
+            if not self.reconnecting:
+                self.log.append("🔌 Disconnected")
+                self.log.append("🔄 Reconnecting...")
+        else:
+            self.log.append("🔌 Disconnected")
         self.progress = 0
         self.version_bar.setValue(0)
         self.battery_bar.setValue(0)
