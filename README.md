@@ -58,6 +58,8 @@ Session&nbsp;0 for continuous tag strength updates.  In the default state the
 reader uses Session&nbsp;1, causing tags to fall silent briefly after each
 read.
 
+---
+
 Enter a tag ID in the **Search Tag** box to watch for a specific tag. The box
 is red until the reader observes the tag and turns green once it is detected.
 
