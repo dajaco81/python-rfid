@@ -1,5 +1,7 @@
 """Main window for the RFID GUI application."""
 
+# region imports
+
 import sys
 import re
 import serial
@@ -9,26 +11,30 @@ from PyQt5.QtWidgets import (
     QMainWindow,
     QWidget,
     QLabel,
+    QLayout,
     QPushButton,
     QComboBox,
     QLineEdit,
     QTextEdit,
+    QFrame,
     QHBoxLayout,
     QVBoxLayout,
     QTableWidget,
     QTableWidgetItem,
     QProgressBar,
 )
-from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import QTimer, Qt
+
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from typing import Optional
+from typing import TypeVar, Generic, Optional
 
 from serial_worker import SerialWorker
 from parsers import ResponseParser, parse_payload
 from utils import strength_to_percentage
 from constants import STRENGTH_HISTORY_LEN
 
+# endregion
 
 class MplCanvas(FigureCanvas):
     """Simple matplotlib canvas for live plots."""
@@ -38,6 +44,39 @@ class MplCanvas(FigureCanvas):
         super().__init__(fig)
         self.axes = fig.add_subplot(111)
 
+LayoutT = TypeVar("LayoutT", bound=QLayout)
+
+class DebugLayoutWrapper(Generic[LayoutT]):
+    def __init__(self, layout_cls: type[LayoutT], debug=False, color="#eef"):
+        self.layout: LayoutT = layout_cls()
+        self._debug = debug
+        self._frame = None
+
+        if debug:
+            self._frame = QFrame()
+            self._frame.setFrameShape(QFrame.Box)
+            self._frame.setStyleSheet(f"background-color: {color};")
+            self._frame.setLayout(self.layout)
+
+    def __getattr__(self, name):
+        return getattr(self.layout, name)
+
+    def showBorder(self):
+        if self._frame:
+            self._frame.setFrameShape(QFrame.Box)
+            self._frame.setStyleSheet(f"background-color: {self._color};")
+
+    def hideBorder(self):
+        if self._frame:
+            self._frame.setFrameShape(QFrame.NoFrame)
+            self._frame.setStyleSheet("")
+
+    def attachTo(self, parent_layout):
+        """Attach to parent layout in the appropriate form."""
+        if self._debug:
+            parent_layout.addWidget(self._frame)
+        else:
+            parent_layout.addLayout(self.layout)
 
 class MainWindow(QMainWindow):
     """Primary application window."""
@@ -46,7 +85,7 @@ class MainWindow(QMainWindow):
         """Configure widgets and initialize member data."""
         super().__init__()
         self.setWindowTitle("TSL 1128 Interface")
-        self.resize(800, 600)
+        self.resize(1200, 800)
 
         w = QWidget()
         self.setCentralWidget(w)
@@ -57,14 +96,14 @@ class MainWindow(QMainWindow):
         root.addLayout(right_layout)
 
         # Port selector + Refresh
-        h1 = QHBoxLayout()
+        h1 = DebugLayoutWrapper(QHBoxLayout, debug=True)
         h1.addWidget(QLabel("Port:"))
         self.combo = QComboBox()
         h1.addWidget(self.combo)
         b_refresh = QPushButton("🔄 Refresh")
         b_refresh.clicked.connect(self.refresh_ports)
         h1.addWidget(b_refresh)
-        left_layout.addLayout(h1)
+        h1.attachTo(left_layout)
 
         # Connect/Disconnect
         h0 = QHBoxLayout()
