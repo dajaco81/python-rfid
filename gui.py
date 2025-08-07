@@ -508,7 +508,7 @@ class MainWindow(QMainWindow):
 
     def on_search_tag_changed(self, text: str) -> None:
         """Handle changes to the tag search input."""
-        self.search_tag = text.strip() or None
+        self.search_tag = text.strip().lstrip('0') or None
         self.search_tag_seen = False
         self.update_search_tag_color()
 
@@ -552,7 +552,7 @@ class MainWindow(QMainWindow):
     def handle_inventory_line(self, line: str) -> None:
         """Process inventory EP/RI lines."""
         if line.startswith("EP:"):
-            tag = line[3:].strip()
+            tag = line[3:].strip().lstrip('0') 
             if not tag:
                 return
             self.pending_tag = tag
