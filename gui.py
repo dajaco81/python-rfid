@@ -27,7 +27,7 @@ from PyQt5.QtCore import QTimer, Qt
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from typing import TypeVar, Generic, Optional
+from typing import TypeVar, Generic, Optional, Any
 
 from serial_worker import SerialWorker
 from parsers import ResponseParser, parse_payload
@@ -47,10 +47,11 @@ class MplCanvas(FigureCanvas):
 LayoutT = TypeVar("LayoutT", bound=QLayout)
 
 class DebugLayoutWrapper(Generic[LayoutT]):
-    def __init__(self, layout_cls: type[LayoutT], debug=False, color="#eef"):
+    def __init__(self, layout_cls: type[LayoutT], debug: bool = False, color: str = "#eef") -> None:
         self.layout: LayoutT = layout_cls()
         self._debug = debug
-        self._frame = None
+        self._frame: Optional[QFrame] = None
+        self._color = color
 
         if debug:
             self._frame = QFrame()
@@ -58,8 +59,11 @@ class DebugLayoutWrapper(Generic[LayoutT]):
             self._frame.setStyleSheet(f"background-color: {color};")
             self._frame.setLayout(self.layout)
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         return getattr(self.layout, name)
+
+    def __dir__(self) -> list[str]:
+        return sorted(set(dir(self.layout) + super().__dir__()))
 
     def showBorder(self):
         if self._frame:
@@ -96,7 +100,7 @@ class MainWindow(QMainWindow):
         root.addLayout(right_layout)
 
         # Port selector + Refresh
-        h1 = DebugLayoutWrapper(QHBoxLayout, debug=True)
+        h1: DebugLayoutWrapper[QHBoxLayout] = DebugLayoutWrapper(QHBoxLayout, debug=True)
         h1.addWidget(QLabel("Port:"))
         self.combo = QComboBox()
         h1.addWidget(self.combo)
