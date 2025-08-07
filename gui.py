@@ -24,6 +24,7 @@ from PyQt5.QtWidgets import (
     QProgressBar,
 )
 from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtGui import QColor
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -50,12 +51,16 @@ class DebugLayoutWrapper(Generic[LayoutT]):
     def __init__(self, layout_cls: type[LayoutT], debug=False, color="#eef"):
         self.layout: LayoutT = layout_cls()
         self._debug = debug
+        self._color = color
         self._frame = None
 
         if debug:
             self._frame = QFrame()
             self._frame.setFrameShape(QFrame.Box)
-            self._frame.setStyleSheet(f"background-color: {color};")
+            palette = self._frame.palette()
+            palette.setColor(self._frame.backgroundRole(), QColor(color))
+            self._frame.setPalette(palette)
+            self._frame.setAutoFillBackground(True)
             self._frame.setLayout(self.layout)
 
     def __getattr__(self, name):
@@ -64,12 +69,15 @@ class DebugLayoutWrapper(Generic[LayoutT]):
     def showBorder(self):
         if self._frame:
             self._frame.setFrameShape(QFrame.Box)
-            self._frame.setStyleSheet(f"background-color: {self._color};")
+            palette = self._frame.palette()
+            palette.setColor(self._frame.backgroundRole(), QColor(self._color))
+            self._frame.setPalette(palette)
+            self._frame.setAutoFillBackground(True)
 
     def hideBorder(self):
         if self._frame:
             self._frame.setFrameShape(QFrame.NoFrame)
-            self._frame.setStyleSheet("")
+            self._frame.setAutoFillBackground(False)
 
     def attachTo(self, parent_layout):
         """Attach to parent layout in the appropriate form."""
