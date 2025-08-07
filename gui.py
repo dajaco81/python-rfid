@@ -260,6 +260,8 @@ class MainWindow(QMainWindow):
         self.timer.start(100)
 
         self.worker = None
+        self.auto_reconnect = False
+        self.reconnecting = False
         self.scanning = False
         self.refresh_ports()
 
@@ -330,6 +332,7 @@ class MainWindow(QMainWindow):
         port = self.combo.currentData()
         if not port or self.worker:
             return
+        self.auto_reconnect = True
         self.worker = SerialWorker(port)
         self.worker.connected.connect(self.on_connected)
         self.worker.disconnected.connect(self.on_disconnected)
@@ -340,8 +343,10 @@ class MainWindow(QMainWindow):
     def disconnect_serial(self):
         """Stop the worker and reset the UI."""
         if self.worker:
+            self.auto_reconnect = False
             self.worker.stop()
             self.worker = None
+        self.reconnecting = False
         self.progress = 0
         self.version_bar.setValue(0)
         self.battery_bar.setValue(0)
@@ -407,14 +412,16 @@ class MainWindow(QMainWindow):
     def on_connected(self, port: str):
         """Handle reader connection."""
         self.log.append(f"✅ Connected to {port}")
-        self.tag_counts.clear()
-        self.tag_strengths.clear()
-        self.update_table()
-        self.update_strength_plot()
+        if not self.reconnecting:
+            self.tag_counts.clear()
+            self.tag_strengths.clear()
+            self.update_table()
+            self.update_strength_plot()
         self.send_inventory_setup()
         self.scanning = True
         if self.poll_enabled:
             self.poll_status()
+        self.reconnecting = False
 
     def on_disconnected(self):
         """Handle reader disconnection."""
@@ -424,6 +431,10 @@ class MainWindow(QMainWindow):
         self.battery_bar.setValue(0)
         self.scanning = False
         self.pending_tag = None
+        self.worker = None
+        if self.auto_reconnect:
+            self.reconnecting = True
+            QTimer.singleShot(1000, self.connect_serial)
 
     def on_command_sent(self, cmd: str):
         """Log sent commands that aren't silent."""
