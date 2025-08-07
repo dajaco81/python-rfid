@@ -133,7 +133,7 @@ class MainWindow(QMainWindow):
         h1.attachTo(left_layout)
 
         # Connect/Disconnect
-        h0 = QHBoxLayout()
+        h0 = DebugHBoxLayout(debug=True, color=c.blue)
         for name, slot in [
             ("Connect", self.connect_serial),
             ("Disconnect", self.disconnect_serial),
@@ -151,7 +151,7 @@ class MainWindow(QMainWindow):
         self.session_toggle.setChecked(False)
         self.session_toggle.toggled.connect(self.toggle_session)
         h0.addWidget(self.session_toggle)
-        left_layout.addLayout(h0)
+        h0.attachTo(left_layout)
 
         # Shortcuts
         h2 = QHBoxLayout()
