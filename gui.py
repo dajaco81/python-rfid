@@ -194,18 +194,19 @@ class MainWindow(QMainWindow):
         self.strength_history_len = STRENGTH_HISTORY_LEN
         self.pending_tag: Optional[str] = None
         self.selected_tag: Optional[str] = None
+        self.search_tag: Optional[str] = None
+        self.search_tag_seen = False
         self.table = QTableWidget(0, 4)
         self.table.setHorizontalHeaderLabels(["Tag", "Count", "Min Strength", "Max Strength"])
         self.table.itemSelectionChanged.connect(self.on_table_selection_changed)
         left_layout.addWidget(self.table)
-        h_filter = QHBoxLayout()
-        b_filter = QPushButton("Filter Tag")
-        b_filter.clicked.connect(self.filter_selected_tag)
-        h_filter.addWidget(b_filter)
-        b_clear_filter = QPushButton("Clear Filter")
-        b_clear_filter.clicked.connect(self.clear_tag_filter)
-        h_filter.addWidget(b_clear_filter)
-        left_layout.addLayout(h_filter)
+        h_search = QHBoxLayout()
+        h_search.addWidget(QLabel("Search Tag:"))
+        self.tag_search_input = QLineEdit()
+        self.tag_search_input.setPlaceholderText("Enter tag")
+        self.tag_search_input.textChanged.connect(self.on_search_tag_changed)
+        h_search.addWidget(self.tag_search_input)
+        left_layout.addLayout(h_search)
 
         # Right side info containers
         right_layout.addWidget(QLabel("Version"))
@@ -373,26 +374,6 @@ class MainWindow(QMainWindow):
         self.update_table()
         self.update_strength_plot()
 
-    def filter_selected_tag(self) -> None:
-        """Apply a tag ID filter using the currently selected tag."""
-        if not self.worker:
-            self.log.append("⚠️ Not connected")
-            return
-        if not self.selected_tag:
-            self.log.append("⚠️ No tag selected")
-            return
-        tag = self.selected_tag
-        length = len(tag) * 4
-        cmd = f".iv -s 0 -a 0 -b epc -o 29 -l {length} -m {tag}"
-        self.send_command(cmd)
-
-    def clear_tag_filter(self) -> None:
-        """Clear any active tag ID filter."""
-        if not self.worker:
-            self.log.append("⚠️ Not connected")
-            return
-        self.send_command(".iv -s 0 -r")
-
     def send_command(self, cmd: str, silent: bool = False):
         """Send a command string to the reader."""
         cmd = cmd.strip()
@@ -525,6 +506,21 @@ class MainWindow(QMainWindow):
         txt = "\n".join(f"{k}: {v}" for k, v in self.battery_info.items())
         self.battery_display.setPlainText(txt)
 
+    def on_search_tag_changed(self, text: str) -> None:
+        """Handle changes to the tag search input."""
+        self.search_tag = text.strip() or None
+        self.search_tag_seen = False
+        self.update_search_tag_color()
+
+    def update_search_tag_color(self) -> None:
+        """Update background color based on search tag status."""
+        if not self.search_tag:
+            self.tag_search_input.setStyleSheet("")
+        elif self.search_tag_seen:
+            self.tag_search_input.setStyleSheet(f"background-color: {c.green};")
+        else:
+            self.tag_search_input.setStyleSheet(f"background-color: {c.red};")
+
     def on_table_selection_changed(self) -> None:
         """Update selected tag for strength plotting."""
         items = self.table.selectedItems()
@@ -560,6 +556,9 @@ class MainWindow(QMainWindow):
             if not tag:
                 return
             self.pending_tag = tag
+            if self.search_tag and tag == self.search_tag:
+                self.search_tag_seen = True
+                self.update_search_tag_color()
             self.tag_counts[tag] = self.tag_counts.get(tag, 0) + 1
             hist = self.tag_strengths.setdefault(tag, [])
             hist.append(None)

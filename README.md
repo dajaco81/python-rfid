@@ -58,8 +58,8 @@ Session&nbsp;0 for continuous tag strength updates.  In the default state the
 reader uses Session&nbsp;1, causing tags to fall silent briefly after each
 read.
 
-Select a tag in the table and click **Filter Tag** to have the reader observe
-only that tag.  Use **Clear Filter** to remove the filter.
+Enter a tag ID in the **Search Tag** box to watch for a specific tag. The box
+is red until the reader observes the tag and turns green once it is detected.
 
 The tag table tracks the minimum and maximum signal strength seen for each
 tag. These values persist regardless of the limited history buffer and reset
