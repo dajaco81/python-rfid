@@ -431,7 +431,11 @@ class MainWindow(QMainWindow):
         self.battery_bar.setValue(0)
         self.scanning = False
         self.pending_tag = None
+        worker = self.worker
         self.worker = None
+        if worker:
+            worker.wait()
+            worker.deleteLater()
         if self.auto_reconnect:
             self.reconnecting = True
             QTimer.singleShot(1000, self.connect_serial)
