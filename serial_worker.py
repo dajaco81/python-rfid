@@ -51,15 +51,19 @@ class SerialWorker(QThread):
             if self.ser and self.ser.is_open:
                 try:
                     self.ser.flush()
-                except serial.SerialException:
+                except (serial.SerialException, OSError):
+                    # Device may already be gone
                     pass
                 # Drop lines so the reader knows we're disconnecting
                 try:
                     self.ser.dtr = False
                     self.ser.rts = False
-                except serial.SerialException:
+                except (serial.SerialException, OSError):
                     pass
-                self.ser.close()
+                try:
+                    self.ser.close()
+                except (serial.SerialException, OSError):
+                    pass
             self.disconnected.emit()
 
     def _emit_lines(self, buf: str, raw: str) -> str:
