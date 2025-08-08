@@ -23,7 +23,17 @@ class SerialWorker(QThread):
     def run(self):
         """Read lines from the serial port and emit them."""
         try:
-            self.ser = serial.Serial(self.port, self.baud, timeout=1)
+            self.ser = serial.Serial(
+                self.port,
+                self.baud,
+                timeout=1,
+                dsrdtr=True,
+                rtscts=True,
+                exclusive=False,
+            )
+            # Explicitly assert control lines so the reader wakes immediately
+            self.ser.dtr = True
+            self.ser.rts = True
             self.connected.emit(self.port)
             buf = ""
             while self._running:
@@ -39,6 +49,16 @@ class SerialWorker(QThread):
             pass
         finally:
             if self.ser and self.ser.is_open:
+                try:
+                    self.ser.flush()
+                except serial.SerialException:
+                    pass
+                # Drop lines so the reader knows we're disconnecting
+                try:
+                    self.ser.dtr = False
+                    self.ser.rts = False
+                except serial.SerialException:
+                    pass
                 self.ser.close()
             self.disconnected.emit()
 

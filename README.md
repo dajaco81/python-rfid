@@ -27,6 +27,20 @@ python run.py
 
 Replace `python` with `python3` if needed.
 
+## Recovering after USB reconnects
+
+macOS can take a while to wake USB–serial adapters after they are unplugged.
+Use the included helper to toggle the control lines and nudge the reader without
+touching any cables:
+
+```bash
+python kick_port.py         # auto-detects the first USB serial port
+python kick_port.py /dev/tty.usbserial-FTXYZ  # or specify a port
+```
+
+The GUI now also asserts and drops DTR/RTS when connecting and disconnecting to
+speed up reconnection.
+
 ### Console output
 
 Commands sent to the reader appear once in the console prefixed with `>>`.
