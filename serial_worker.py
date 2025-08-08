@@ -3,6 +3,12 @@
 import serial
 from PyQt5.QtCore import QThread, pyqtSignal
 
+try:  # termios is unavailable on Windows
+    import termios
+    TermiosError = termios.error
+except Exception:  # pragma: no cover - only executed on non-POSIX systems
+    TermiosError = OSError
+
 
 class SerialWorker(QThread):
     """Read and write serial data in a background thread."""
@@ -40,29 +46,29 @@ class SerialWorker(QThread):
                 try:
                     n = self.ser.in_waiting or 1
                     raw = self.ser.read(n).decode(errors="ignore")
-                except (serial.SerialException, OSError):
+                except (serial.SerialException, OSError, TermiosError):
                     break
                 if raw:
                     buf = self._emit_lines(buf, raw)
-        except (serial.SerialException, OSError):
+        except (serial.SerialException, OSError, TermiosError):
             # Opening the port failed or the connection dropped
             pass
         finally:
             if self.ser and self.ser.is_open:
                 try:
                     self.ser.flush()
-                except (serial.SerialException, OSError):
+                except (serial.SerialException, OSError, TermiosError):
                     # Device may already be gone
                     pass
                 # Drop lines so the reader knows we're disconnecting
                 try:
                     self.ser.dtr = False
                     self.ser.rts = False
-                except (serial.SerialException, OSError):
+                except (serial.SerialException, OSError, TermiosError):
                     pass
                 try:
                     self.ser.close()
-                except (serial.SerialException, OSError):
+                except (serial.SerialException, OSError, TermiosError):
                     pass
             self.disconnected.emit()
 
@@ -95,7 +101,10 @@ class SerialWorker(QThread):
         if not (self.ser and self.ser.is_open):
             return
         for part in cmd.split(";"):
-            self.ser.write((part + "\r\n").encode())
+            try:
+                self.ser.write((part + "\r\n").encode())
+            except (serial.SerialException, OSError, TermiosError):
+                break
             if echo:
                 self.command_sent.emit(part)
 
