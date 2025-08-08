@@ -345,7 +345,7 @@ class MainWindow(QMainWindow):
         if self.worker:
             self.auto_reconnect = False
             # Tell the reader we're disconnecting so it can sleep
-            self.send_command(".dc", silent=True)
+            self.send_command(".sl", silent=True)
             self.worker.stop()
             self.worker = None
         self.reconnecting = False
