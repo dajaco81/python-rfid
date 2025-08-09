@@ -142,8 +142,10 @@ class MainWindow(QMainWindow):
         # Auto‑poll
         self.poll_interval = 10  # seconds
         self.progress_range = 100
-        self.progress = 0
-        self.poll_enabled = True
+        self.version_progress = 0
+        self.battery_progress = 0
+        self.version_poll_enabled = True
+        self.battery_poll_enabled = True
         self.version_bar.setRange(0, self.progress_range)
         self.battery_bar.setRange(0, self.progress_range)
         self.version_bar.setValue(0)
@@ -196,11 +198,6 @@ class MainWindow(QMainWindow):
             b = QPushButton(name)
             b.clicked.connect(slot)
             connectionLayout.addWidget(b)
-        self.poll_toggle = QPushButton("Polling On")
-        self.poll_toggle.setCheckable(True)
-        self.poll_toggle.setChecked(True)
-        self.poll_toggle.clicked.connect(self.toggle_polling)
-        connectionLayout.addWidget(self.poll_toggle)
         self.session_toggle = QPushButton("Quiet Tags")
         self.session_toggle.setCheckable(True)
         self.session_toggle.setChecked(False)
@@ -312,6 +309,11 @@ class MainWindow(QMainWindow):
         versionLayout.addWidget(self.version_bar)
         self.version_display = QTextEdit(readOnly=True)
         versionLayout.addWidget(self.version_display)
+        self.version_poll_toggle = QPushButton("Polling On")
+        self.version_poll_toggle.setCheckable(True)
+        self.version_poll_toggle.setChecked(True)
+        self.version_poll_toggle.clicked.connect(self.toggle_version_polling)
+        versionLayout.addWidget(self.version_poll_toggle)
         return versionLayout
 
     def generate_battery_layout(self):
@@ -330,6 +332,11 @@ class MainWindow(QMainWindow):
             batteryLayout.addWidget(self.battery_bar)
             self.battery_display = QTextEdit(readOnly=True)
             batteryLayout.addWidget(self.battery_display)
+            self.battery_poll_toggle = QPushButton("Polling On")
+            self.battery_poll_toggle.setCheckable(True)
+            self.battery_poll_toggle.setChecked(True)
+            self.battery_poll_toggle.clicked.connect(self.toggle_battery_polling)
+            batteryLayout.addWidget(self.battery_poll_toggle)
             return batteryLayout
 
     def generate_plot_layout(self):
@@ -421,25 +428,13 @@ class MainWindow(QMainWindow):
         self.received_response = False
         self.connect_poll_timer.stop()
         self.pending_port = None
-        self.progress = 0
+        self.version_progress = 0
+        self.battery_progress = 0
         self.version_bar.setValue(0)
         self.battery_bar.setValue(0)
         self.scanning = False
         self.pending_tag = None
         self.status_label.setText("🔌 Disconnected")
-
-    def toggle_polling(self):
-        """Turn automatic status polling on or off."""
-        self.poll_enabled = self.poll_toggle.isChecked()
-        self.poll_toggle.setText("Polling On" if self.poll_enabled else "Polling Off")
-        if self.poll_enabled and self.worker:
-            self.poll_status()
-
-    def poll_status(self):
-        """Issue queued commands for status updates."""
-        for cmd in (".vr", ".bl"):
-            self.send_command(cmd, silent=True)
-        self.progress = 0
 
     def poll_connection(self):
         """Rapidly poll for a version response while connecting."""
@@ -447,6 +442,36 @@ class MainWindow(QMainWindow):
             self.connect_poll_timer.stop()
             return
         self.send_command(".vr", silent=True)
+
+    def poll_version(self):
+        """Request version information from the reader."""
+        self.send_command(".vr", silent=True)
+        self.version_progress = 0
+        self.version_bar.setValue(0)
+
+    def poll_battery(self):
+        """Request battery information from the reader."""
+        self.send_command(".bl", silent=True)
+        self.battery_progress = 0
+        self.battery_bar.setValue(0)
+
+    def toggle_version_polling(self):
+        """Turn automatic version polling on or off."""
+        self.version_poll_enabled = self.version_poll_toggle.isChecked()
+        self.version_poll_toggle.setText(
+            "Polling On" if self.version_poll_enabled else "Polling Off"
+        )
+        if self.version_poll_enabled and self.worker:
+            self.poll_version()
+
+    def toggle_battery_polling(self):
+        """Turn automatic battery polling on or off."""
+        self.battery_poll_enabled = self.battery_poll_toggle.isChecked()
+        self.battery_poll_toggle.setText(
+            "Polling On" if self.battery_poll_enabled else "Polling Off"
+        )
+        if self.battery_poll_enabled and self.worker:
+            self.poll_battery()
 
     def clear_console(self):
         """Clear the log output area."""
@@ -516,8 +541,10 @@ class MainWindow(QMainWindow):
             self.update_strength_plot()
         self.send_inventory_setup()
         self.scanning = True
-        if self.poll_enabled:
-            self.poll_status()
+        if self.version_poll_enabled:
+            self.poll_version()
+        if self.battery_poll_enabled:
+            self.poll_battery()
         self.reconnecting = False
 
     def on_disconnected(self):
@@ -526,7 +553,8 @@ class MainWindow(QMainWindow):
             self.status_label.setText("🔄 Reconnecting")
         else:
             self.status_label.setText("🔌 Disconnected")
-        self.progress = 0
+        self.version_progress = 0
+        self.battery_progress = 0
         self.version_bar.setValue(0)
         self.battery_bar.setValue(0)
         self.scanning = False
@@ -729,19 +757,30 @@ class MainWindow(QMainWindow):
 
     def update_progress(self):
         """Advance progress bars and poll when complete."""
-        if not self.poll_enabled or not self.worker:
-            self.progress = 0
+        if not self.worker:
+            self.version_progress = 0
+            self.battery_progress = 0
             self.version_bar.setValue(0)
             self.battery_bar.setValue(0)
             return
 
-        self.progress += 1
-        if self.progress > self.progress_range:
-            self.poll_status()
-            self.progress = 0
+        if self.version_poll_enabled:
+            self.version_progress += 1
+            if self.version_progress > self.progress_range:
+                self.poll_version()
+            self.version_bar.setValue(self.version_progress)
+        else:
+            self.version_progress = 0
+            self.version_bar.setValue(0)
 
-        self.version_bar.setValue(self.progress)
-        self.battery_bar.setValue(self.progress)
+        if self.battery_poll_enabled:
+            self.battery_progress += 1
+            if self.battery_progress > self.progress_range:
+                self.poll_battery()
+            self.battery_bar.setValue(self.battery_progress)
+        else:
+            self.battery_progress = 0
+            self.battery_bar.setValue(0)
 
     def closeEvent(self, e):
         """Cleanly stop the worker before closing."""
