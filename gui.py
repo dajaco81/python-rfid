@@ -481,7 +481,7 @@ class MainWindow(QMainWindow):
 
     def on_connected(self, port: str):
         """Handle reader connection."""
-        self.status_label.setText(f"✅ Connected to {port}")
+        self.status_label.setText(f"✅ Connected")
         if not self.reconnecting:
             self.tag_counts.clear()
             self.tag_strengths.clear()
@@ -496,7 +496,7 @@ class MainWindow(QMainWindow):
     def on_disconnected(self):
         """Handle reader disconnection."""
         if self.auto_reconnect:
-            self.status_label.setText("🔄 Reconnecting...")
+            self.status_label.setText("🔄 Reconnecting")
         else:
             self.status_label.setText("🔌 Disconnected")
         self.progress = 0
