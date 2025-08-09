@@ -58,30 +58,33 @@ class MplCanvas(FigureCanvas):
 class LayoutFrameMixer:
     """Adding framing to layouts."""
 
+    DEFAULT_SPACING = 4
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Always wrap the layout in a frame so spacing behaves consistently
         self._frame: QFrame = QFrame()
         self._frame.setLayout(self)
+        self._style_base = "border-radius: 6px;"
+        self._frame.setStyleSheet(f"QFrame {{{self._style_base}}}")
 
     def setColor(self, color):
-        if color == None:
-            self._frame.setAutoFillBackground(False)
+        if color is None:
+            self._frame.setStyleSheet(f"QFrame {{{self._style_base}}}")
             return
-        palette = self._frame.palette()
-        palette.setColor(self._frame.backgroundRole(), QColor(color))
-        self._frame.setPalette(palette)
-        self._frame.setAutoFillBackground(True)
+        self._frame.setStyleSheet(
+            f"QFrame {{{self._style_base} background-color: {color};}}"
+        )
 
     def noMargins(self):
         self.setContentsMargins(0, 0, 0, 0)
-        self.setSpacing(0)
+        self.setSpacing(self.DEFAULT_SPACING)
         self._frame.setContentsMargins(0, 0, 0, 0)
 
     def defaultMargins(self):
         self.setContentsMargins(-1, -1, -1, -1)
-        self.setSpacing(-1)
-        self._frame.setContentsMargins(-1, -1, -1, -1)      
+        self.setSpacing(self.DEFAULT_SPACING)
+        self._frame.setContentsMargins(-1, -1, -1, -1)
 
     def attachTo(self, parent_layout: QLayout, *args) -> None:
         """Attach to parent layout using the frame wrapper."""
@@ -109,9 +112,10 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(canvas)
 
         root = QHBoxLayout(canvas)
+        root.setSpacing(LayoutFrameMixer.DEFAULT_SPACING)
 
         left_container = DVBoxLayout()
-        left_container.setColor(c.mint)
+        left_container.setColor(None)
         left_container.noMargins()
         self.generate_port_layout().attachTo(left_container)
         self.generate_connection_layout().attachTo(left_container)
@@ -123,7 +127,7 @@ class MainWindow(QMainWindow):
         left_container.attachTo(root, 1)
 
         right_container = DVBoxLayout()
-        right_container.setColor(c.mint)
+        right_container.setColor(None)
         right_container.noMargins()
         self.generate_version_layout().attachTo(right_container)
         self.generate_battery_layout().attachTo(right_container)
