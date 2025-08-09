@@ -123,137 +123,20 @@ class MainWindow(QMainWindow):
         rootLayout = QHBoxLayout(canvas)
 
         left_layout = DVBoxLayout(color=c.mint)
-        right_layout = DVBoxLayout(color=c.gray)
+        self.generate_port_layout().attachTo(left_layout)
+        self.generate_connection_layout().attachTo(left_layout)
+        self.generate_shortcuts_layout().attachTo(left_layout)
+        self.generate_command_layout().attachTo(left_layout)
+        self.generate_log_layout().attachTo(left_layout)
+        self.generate_table_layout().attachTo(left_layout)
+        self.generate_tag_search_layout().attachTo(left_layout)
         left_layout.attachTo(rootLayout, 1)
+
+        right_layout = DVBoxLayout(color=c.gray)
+        self.generate_version_layout().attachTo(right_layout)
+        self.generate_battery_layout().attachTo(right_layout)
+        self.generate_plot_layout().attachTo(right_layout)
         right_layout.attachTo(rootLayout)
-
-        # Port selector + Refresh
-        portLayout = DHBoxLayout(color=c.red)
-        portLayout.addWidget(QLabel("Port:"))
-        self.combo = QComboBox()
-        portLayout.addWidget(self.combo)
-        b_refresh = QPushButton("🔄 Refresh")
-        b_refresh.clicked.connect(self.refresh_ports)
-        portLayout.addWidget(b_refresh)
-        portLayout.attachTo(left_layout)
-
-        # Connect/Disconnect
-        connectLayout = DHBoxLayout(color=c.blue)
-        for name, slot in [
-            ("Connect", self.connect_serial),
-            ("Disconnect", self.disconnect_serial),
-        ]:
-            b = QPushButton(name)
-            b.clicked.connect(slot)
-            connectLayout.addWidget(b)
-        self.poll_toggle = QPushButton("Polling On")
-        self.poll_toggle.setCheckable(True)
-        self.poll_toggle.setChecked(True)
-        self.poll_toggle.clicked.connect(self.toggle_polling)
-        connectLayout.addWidget(self.poll_toggle)
-        self.session_toggle = QPushButton("Quiet Tags")
-        self.session_toggle.setCheckable(True)
-        self.session_toggle.setChecked(False)
-        self.session_toggle.toggled.connect(self.toggle_session)
-        connectLayout.addWidget(self.session_toggle)
-        connectLayout.attachTo(left_layout)
-
-        # Shortcuts
-        shortcutsLayout = DHBoxLayout(color=c.cyan)
-        for txt, cmd in [
-            ("Version", ".vr"),
-            ("Battery", ".bl"),
-            ("Inventory", ".iv"),
-        ]:
-            btn = QPushButton(txt)
-            btn.clicked.connect(lambda _, c=cmd: self.send_command(c))
-            shortcutsLayout.addWidget(btn)
-        shortcutsLayout.attachTo(left_layout)
-
-        # Manual
-        commandLayout = DHBoxLayout(color=c.orange)
-        commandLayout.addWidget(QLabel("Command:"))
-        self.input = QLineEdit()
-        commandLayout.addWidget(self.input)
-        b_send = QPushButton("Send")
-        b_send.clicked.connect(lambda: self.send_command(self.input.text()))
-        commandLayout.addWidget(b_send)
-        commandLayout.attachTo(left_layout)
-
-        # Log + Table
-        logLayout = DVBoxLayout(color=c.blue)
-        self.log = QTextEdit(readOnly=True)
-        logLayout.addWidget(self.log)
-        b_clear = QPushButton("Clear Console")
-        b_clear.clicked.connect(self.clear_console)
-        logLayout.addWidget(b_clear)
-        logLayout.attachTo(left_layout)
-
-        tableLayout = DVBoxLayout(color=c.orange)
-        b_clear_table = QPushButton("Clear Tags")
-        b_clear_table.clicked.connect(self.clear_table)
-        tableLayout.addWidget(b_clear_table)
-
-        self.tag_counts = {}
-        self.tag_strengths: dict[str, list[float]] = {}
-        self.tag_min_strengths: dict[str, float] = {}
-        self.tag_max_strengths: dict[str, float] = {}
-        # Maximum number of signal strength samples to retain per tag
-        self.strength_history_len = STRENGTH_HISTORY_LEN
-        self.pending_tag: Optional[str] = None
-        self.selected_tag: Optional[str] = None
-        self.search_tag: Optional[str] = None
-        self.search_tag_seen = False
-        self.table = QTableWidget(0, 4)
-        self.table.setHorizontalHeaderLabels(["Tag", "Count", "Min Strength", "Max Strength"])
-        self.table.itemSelectionChanged.connect(self.on_table_selection_changed)
-        tableLayout.addWidget(self.table)
-        tableLayout.attachTo(left_layout)
-
-        tagSearchLayout = DHBoxLayout(color=c.red)
-        tagSearchLayout.addWidget(QLabel("Search Tag:"))
-        self.tag_search_input = QLineEdit()
-        self.tag_search_input.setPlaceholderText("Enter tag")
-        self.tag_search_input.textChanged.connect(self.on_search_tag_changed)
-        tagSearchLayout.addWidget(self.tag_search_input)
-        tagSearchLayout.attachTo(left_layout)
-
-        # Right side info containers
-        right_layout.addWidget(QLabel("Version"))
-        version_container = QVBoxLayout()
-        self.version_bar = QProgressBar()
-        self.version_bar.setTextVisible(False)
-        self.version_bar.setFixedHeight(4)
-        self.version_bar.setStyleSheet(
-            """
-            QProgressBar {border:1px solid #555;border-radius:2px;background:#eee;}
-            QProgressBar::chunk {background-color:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #66f,stop:1 #9cf);}
-            """
-        )
-        version_container.addWidget(self.version_bar)
-        self.version_display = QTextEdit(readOnly=True)
-        version_container.addWidget(self.version_display)
-        right_layout.addLayout(version_container)
-
-        right_layout.addWidget(QLabel("Battery"))
-        battery_container = QVBoxLayout()
-        self.battery_bar = QProgressBar()
-        self.battery_bar.setTextVisible(False)
-        self.battery_bar.setFixedHeight(4)
-        self.battery_bar.setStyleSheet(
-            """
-            QProgressBar {border:1px solid #555;border-radius:2px;background:#eee;}
-            QProgressBar::chunk {background-color:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #66f,stop:1 #9cf);}
-            """
-        )
-        battery_container.addWidget(self.battery_bar)
-        self.battery_display = QTextEdit(readOnly=True)
-        battery_container.addWidget(self.battery_display)
-        right_layout.addLayout(battery_container)
-
-        right_layout.addWidget(QLabel("Signal Strength"))
-        self.strength_canvas = MplCanvas()
-        right_layout.addWidget(self.strength_canvas)
 
         # Auto‑poll
         self.poll_interval = 10  # seconds
@@ -281,6 +164,140 @@ class MainWindow(QMainWindow):
         self.response_parser = ResponseParser()
         self.version_info: dict[str, str] = {}
         self.battery_info: dict[str, str] = {}
+
+    def generate_port_layout(self):
+            portLayout = DHBoxLayout(color=c.red)
+            portLayout.addWidget(QLabel("Port:"))
+            self.combo = QComboBox()
+            portLayout.addWidget(self.combo)
+            b_refresh = QPushButton("🔄 Refresh")
+            b_refresh.clicked.connect(self.refresh_ports)
+            portLayout.addWidget(b_refresh)
+            return portLayout
+
+    def generate_connection_layout(self):
+        connectionLayout = DHBoxLayout(color=c.blue)
+        for name, slot in [
+            ("Connect", self.connect_serial),
+            ("Disconnect", self.disconnect_serial),
+        ]:
+            b = QPushButton(name)
+            b.clicked.connect(slot)
+            connectionLayout.addWidget(b)
+        self.poll_toggle = QPushButton("Polling On")
+        self.poll_toggle.setCheckable(True)
+        self.poll_toggle.setChecked(True)
+        self.poll_toggle.clicked.connect(self.toggle_polling)
+        connectionLayout.addWidget(self.poll_toggle)
+        self.session_toggle = QPushButton("Quiet Tags")
+        self.session_toggle.setCheckable(True)
+        self.session_toggle.setChecked(False)
+        self.session_toggle.toggled.connect(self.toggle_session)
+        connectionLayout.addWidget(self.session_toggle)
+        return connectionLayout
+
+    def generate_shortcuts_layout(self):
+        shortcutsLayout = DHBoxLayout(color=c.cyan)
+        for txt, cmd in [
+            ("Version", ".vr"),
+            ("Battery", ".bl"),
+            ("Inventory", ".iv"),
+        ]:
+            btn = QPushButton(txt)
+            btn.clicked.connect(lambda _, c=cmd: self.send_command(c))
+            shortcutsLayout.addWidget(btn)
+        return shortcutsLayout    
+
+    def generate_log_layout(self):
+        logLayout = DVBoxLayout(color=c.blue)
+        self.log = QTextEdit(readOnly=True)
+        logLayout.addWidget(self.log)
+        b_clear = QPushButton("Clear Console")
+        b_clear.clicked.connect(self.clear_console)
+        logLayout.addWidget(b_clear)
+        return logLayout
+
+    def generate_table_layout(self):
+        tableLayout = DVBoxLayout(color=c.orange)
+        b_clear_table = QPushButton("Clear Tags")
+        b_clear_table.clicked.connect(self.clear_table)
+        tableLayout.addWidget(b_clear_table)
+
+        self.tag_counts = {}
+        self.tag_strengths: dict[str, list[float]] = {}
+        self.tag_min_strengths: dict[str, float] = {}
+        self.tag_max_strengths: dict[str, float] = {}
+        # Maximum number of signal strength samples to retain per tag
+        self.strength_history_len = STRENGTH_HISTORY_LEN
+        self.pending_tag: Optional[str] = None
+        self.selected_tag: Optional[str] = None
+        self.search_tag: Optional[str] = None
+        self.search_tag_seen = False
+        self.table = QTableWidget(0, 4)
+        self.table.setHorizontalHeaderLabels(["Tag", "Count", "Min Strength", "Max Strength"])
+        self.table.itemSelectionChanged.connect(self.on_table_selection_changed)
+        tableLayout.addWidget(self.table)
+        return tableLayout
+
+    def generate_tag_search_layout(self):
+        tagSearchLayout = DHBoxLayout(color=c.red)
+        tagSearchLayout.addWidget(QLabel("Search Tag:"))
+        self.tag_search_input = QLineEdit()
+        self.tag_search_input.setPlaceholderText("Enter tag")
+        self.tag_search_input.textChanged.connect(self.on_search_tag_changed)
+        tagSearchLayout.addWidget(self.tag_search_input)
+        return tagSearchLayout
+    
+    def generate_command_layout(self):
+            commandLayout = DHBoxLayout(color=c.orange)
+            commandLayout.addWidget(QLabel("Command:"))
+            self.input = QLineEdit()
+            commandLayout.addWidget(self.input)
+            b_send = QPushButton("Send")
+            b_send.clicked.connect(lambda: self.send_command(self.input.text()))
+            commandLayout.addWidget(b_send)
+            return commandLayout
+
+    def generate_version_layout(self):
+        versionLayout = DVBoxLayout()
+        versionLayout.addWidget(QLabel("Version"))
+        self.version_bar = QProgressBar()
+        self.version_bar.setTextVisible(False)
+        self.version_bar.setFixedHeight(4)
+        self.version_bar.setStyleSheet(
+            """
+            QProgressBar {border:1px solid #555;border-radius:2px;background:#eee;}
+            QProgressBar::chunk {background-color:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #66f,stop:1 #9cf);}
+            """
+        )
+        versionLayout.addWidget(self.version_bar)
+        self.version_display = QTextEdit(readOnly=True)
+        versionLayout.addWidget(self.version_display)
+        return versionLayout
+
+    def generate_battery_layout(self):
+            batteryLayout = DVBoxLayout()
+            batteryLayout.addWidget(QLabel("Battery"))
+            self.battery_bar = QProgressBar()
+            self.battery_bar.setTextVisible(False)
+            self.battery_bar.setFixedHeight(4)
+            self.battery_bar.setStyleSheet(
+                """
+                QProgressBar {border:1px solid #555;border-radius:2px;background:#eee;}
+                QProgressBar::chunk {background-color:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #66f,stop:1 #9cf);}
+                """
+            )
+            batteryLayout.addWidget(self.battery_bar)
+            self.battery_display = QTextEdit(readOnly=True)
+            batteryLayout.addWidget(self.battery_display)
+            return batteryLayout
+
+    def generate_plot_layout(self):
+            plotLayout = DVBoxLayout(color=c.green)
+            plotLayout.addWidget(QLabel("Signal Strength"))
+            self.strength_canvas = MplCanvas()
+            plotLayout.addWidget(self.strength_canvas)
+            return plotLayout
 
     @staticmethod
     def _port_available(dev: str) -> bool:
