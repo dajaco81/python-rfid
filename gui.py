@@ -129,7 +129,7 @@ class MainWindow(QMainWindow):
         self.generate_log_layout().attachTo(left_container)
         self.generate_table_layout().attachTo(left_container)
         self.generate_tag_search_layout().attachTo(left_container)
-        left_container.attachTo(root, 1)
+        left_container.attachTo(root, 2)
 
         right_container = DVBoxLayout()
         right_container.setColor(None)
@@ -137,7 +137,7 @@ class MainWindow(QMainWindow):
         self.generate_version_layout().attachTo(right_container)
         self.generate_battery_layout().attachTo(right_container)
         self.generate_plot_layout().attachTo(right_container)
-        right_container.attachTo(root)
+        right_container.attachTo(root, 1)
 
         # Auto‑poll
         self.poll_interval = 10  # seconds
