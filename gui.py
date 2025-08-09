@@ -47,11 +47,11 @@ class c:
     white     = "#ffffff"
     black     = "#000000"
 
-    primary   = "#267365"
-    secondary = "#F29F05"
-    tertiary  = "#F28705"
-    highlight = "#F2CB05"
-    alert     = "#F23030"
+    primary   = "#F2F2F2"
+    secondary = "#DCE4F2"
+    tertiary  = "#D8DCF2"
+    highlight = "#A6A6A6"
+    alert     = "#595959"
 
 class MplCanvas(FigureCanvas):
     """Simple matplotlib canvas for live plots."""
@@ -114,13 +114,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("TSL 1128 Interface")
         self.resize(1200, 800)
 
-        canvas = QWidget()
-        self.setCentralWidget(canvas)
-
-        
         root = DHBoxLayout()
         root.setColor(c.primary)
-        root.attachTo(canvas)
+        self.setCentralWidget(root._frame)
         root.setSpacing(LayoutFrameMixer.DEFAULT_SPACING)
 
         left_container = DVBoxLayout()
@@ -172,7 +168,7 @@ class MainWindow(QMainWindow):
 
     def generate_port_layout(self):
         portLayout = DHBoxLayout()
-        portLayout.setColor(c.red)
+        portLayout.setColor(c.highlight)
         portLayout.addWidget(QLabel("Port:"))
         self.combo = QComboBox()
         portLayout.addWidget(self.combo)
@@ -183,7 +179,7 @@ class MainWindow(QMainWindow):
 
     def generate_connection_layout(self):
         connectionLayout = DHBoxLayout()
-        connectionLayout.setColor(c.blue)
+        connectionLayout.setColor(c.tertiary)
         for name, slot in [
             ("Connect", self.connect_serial),
             ("Disconnect", self.disconnect_serial),
@@ -205,7 +201,7 @@ class MainWindow(QMainWindow):
 
     def generate_shortcuts_layout(self):
         shortcutsLayout = DHBoxLayout()
-        shortcutsLayout.setColor(c.cyan)
+        shortcutsLayout.setColor(c.secondary)
         for txt, cmd in [
             ("Version", ".vr"),
             ("Battery", ".bl"),
@@ -218,7 +214,7 @@ class MainWindow(QMainWindow):
 
     def generate_log_layout(self):
         logLayout = DVBoxLayout()
-        logLayout.setColor(c.purple)
+        logLayout.setColor(c.highlight)
         self.log = QTextEdit(readOnly=True)
         logLayout.addWidget(self.log)
         b_clear = QPushButton("Clear Console")
@@ -228,7 +224,7 @@ class MainWindow(QMainWindow):
 
     def generate_table_layout(self):
         tableLayout = DVBoxLayout()
-        tableLayout.setColor(c.orange)
+        tableLayout.setColor(c.secondary)
         b_clear_table = QPushButton("Clear Tags"); b_clear_table.clicked.connect(self.clear_table)
         tableLayout.addWidget(b_clear_table)
 
@@ -269,7 +265,7 @@ class MainWindow(QMainWindow):
 
     def generate_tag_search_layout(self):
         tagSearchLayout = DHBoxLayout()
-        tagSearchLayout.setColor(c.pink)
+        tagSearchLayout.setColor(c.highlight)
         tagSearchLayout.addWidget(QLabel("Search Tag:"))
         self.tag_search_input = QLineEdit()
         self.tag_search_input.setPlaceholderText("Enter tag")
@@ -279,7 +275,7 @@ class MainWindow(QMainWindow):
     
     def generate_command_layout(self):
         commandLayout = DHBoxLayout()
-        commandLayout.setColor(c.green)
+        commandLayout.setColor(c.tertiary)
         commandLayout.addWidget(QLabel("Command:"))
         self.input = QLineEdit()
         commandLayout.addWidget(self.input)
@@ -290,7 +286,7 @@ class MainWindow(QMainWindow):
 
     def generate_version_layout(self):
         versionLayout = DVBoxLayout()
-        versionLayout.setColor(c.lavender)
+        versionLayout.setColor(c.tertiary)
         versionLayout.addWidget(QLabel("Version"))
         self.version_bar = QProgressBar()
         self.version_bar.setTextVisible(False)
@@ -308,7 +304,7 @@ class MainWindow(QMainWindow):
 
     def generate_battery_layout(self):
             batteryLayout = DVBoxLayout()
-            batteryLayout.setColor(c.yellow)
+            batteryLayout.setColor(c.secondary)
             batteryLayout.addWidget(QLabel("Battery"))
             self.battery_bar = QProgressBar()
             self.battery_bar.setTextVisible(False)
@@ -326,7 +322,7 @@ class MainWindow(QMainWindow):
 
     def generate_plot_layout(self):
             plotLayout = DVBoxLayout()
-            plotLayout.setColor(c.peach)
+            plotLayout.setColor(c.tertiary)
             plotLayout.addWidget(QLabel("Signal Strength"))
             self.strength_canvas = MplCanvas()
             plotLayout.addWidget(self.strength_canvas)
