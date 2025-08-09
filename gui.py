@@ -60,7 +60,6 @@ class DebugLayoutMixin:
         super().__init__(*args, **kwargs)
         self._debug = debug
         self._color = color
-        self._color = color
         self._frame: Optional[QFrame] = None
 
         if debug:
@@ -71,6 +70,14 @@ class DebugLayoutMixin:
             self._frame.setPalette(palette)
             self._frame.setAutoFillBackground(True)
             self._frame.setLayout(self)
+    
+    def noMargins(self):
+        self.setContentsMargins(0, 0, 0, 0)  # Remove external margins
+        self.setSpacing(0)  # Remove inter-object margins
+
+    def defaultMargins(self):
+        self.setContentsMargins(-1, -1, -1, -1)  # Remove external margins
+        self.setSpacing(-1)  # Remove inter-object margins
 
     def showBorder(self) -> None:
         if self._frame:
@@ -98,13 +105,12 @@ class DHBoxLayout(DebugLayoutMixin, QHBoxLayout):
         super().__init__(*args, debug=debug, color=color, **kwargs)
 
 class DVBoxLayout(DebugLayoutMixin, QVBoxLayout):
-    """QHBoxLayout with optional debug border."""
+    """QVBoxLayout with optional debug border."""
     def __init__(self, *args, debug: bool = True, color: str = "#eef", **kwargs):
         super().__init__(*args, debug=debug, color=color, **kwargs)
 
 class MainWindow(QMainWindow):
     """Primary application window."""
-
     def __init__(self):
         """Configure widgets and initialize member data."""
         super().__init__()
@@ -117,6 +123,7 @@ class MainWindow(QMainWindow):
         rootLayout = QHBoxLayout(canvas)
 
         left_layout = DVBoxLayout(color=c.mint)
+        left_layout.noMargins()
         self.generate_port_layout().attachTo(left_layout)
         self.generate_connection_layout().attachTo(left_layout)
         self.generate_shortcuts_layout().attachTo(left_layout)
@@ -127,6 +134,7 @@ class MainWindow(QMainWindow):
         left_layout.attachTo(rootLayout, 1)
 
         right_layout = DVBoxLayout(color=c.gray)
+        right_layout.noMargins()
         self.generate_version_layout().attachTo(right_layout)
         self.generate_battery_layout().attachTo(right_layout)
         self.generate_plot_layout().attachTo(right_layout)
