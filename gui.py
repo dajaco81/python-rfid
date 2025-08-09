@@ -111,7 +111,7 @@ class MainWindow(QMainWindow):
         root = QHBoxLayout(canvas)
 
         left_container = DVBoxLayout()
-        left_container.setColor(c.gray)
+        left_container.setColor(c.mint)
         left_container.noMargins()
         self.generate_port_layout().attachTo(left_container)
         self.generate_connection_layout().attachTo(left_container)
