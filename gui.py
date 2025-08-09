@@ -720,15 +720,6 @@ class SimulatorWindow(QMainWindow):
         root.noMargins()
         self.setCentralWidget(root._frame)
 
-        send_layout = DHBoxLayout()
-        send_layout.addWidget(QLabel("Line:"))
-        self.line_input = QLineEdit()
-        send_layout.addWidget(self.line_input)
-        b_send = QPushButton("Send")
-        b_send.clicked.connect(self.send_line)
-        send_layout.addWidget(b_send)
-        send_layout.attachTo(root)
-
         tag_layout = DHBoxLayout()
         tag_layout.addWidget(QLabel("Tag:"))
         self.tag_input = QLineEdit()
@@ -743,14 +734,6 @@ class SimulatorWindow(QMainWindow):
         self.log = QTextEdit(readOnly=True)
         log_layout.addWidget(self.log)
         log_layout.attachTo(root, 1)
-
-    def send_line(self) -> None:
-        line = self.line_input.text().strip()
-        if not line:
-            return
-        self.log.append(f"<< {line}")
-        self.main_window.process_line(line)
-        self.line_input.clear()
 
     def simulate_tag(self) -> None:
         tag = self.tag_input.text().strip()
