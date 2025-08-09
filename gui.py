@@ -10,13 +10,13 @@ import serial.tools.list_ports
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow,
     QWidget, QLabel,
-    QLayout, QPushButton,
+    QLayout, QPushButton, QToolButton,
     QComboBox, QLineEdit,
     QTextEdit, QFrame,
     QHBoxLayout, QVBoxLayout,
     QTableWidget, QTableWidgetItem,
     QProgressBar, QSizePolicy,
-    QHeaderView, 
+    QHeaderView,
 )
 from PyQt5.QtCore import QTimer, QEvent, QObject, pyqtSignal
 from PyQt5.QtGui import QColor
@@ -147,8 +147,10 @@ class MainWindow(QMainWindow):
         # Auto‑poll
         self.poll_interval = 10  # seconds
         self.progress_range = 100
-        self.progress = 0
-        self.poll_enabled = True
+        self.version_progress = 0
+        self.battery_progress = 0
+        self.version_poll_enabled = True
+        self.battery_poll_enabled = True
         self.version_bar.setRange(0, self.progress_range)
         self.battery_bar.setRange(0, self.progress_range)
         self.version_bar.setValue(0)
@@ -205,11 +207,6 @@ class MainWindow(QMainWindow):
             b = QPushButton(name)
             b.clicked.connect(slot)
             connectionLayout.addWidget(b)
-        self.poll_toggle = QPushButton("Polling On")
-        self.poll_toggle.setCheckable(True)
-        self.poll_toggle.setChecked(True)
-        self.poll_toggle.clicked.connect(self.toggle_polling)
-        connectionLayout.addWidget(self.poll_toggle)
         self.session_toggle = QPushButton("Quiet Tags")
         self.session_toggle.setCheckable(True)
         self.session_toggle.setChecked(False)
@@ -308,7 +305,19 @@ class MainWindow(QMainWindow):
     def generate_version_layout(self):
         versionLayout = DVBoxLayout()
         versionLayout.setColor(c.tertiary)
-        versionLayout.addWidget(QLabel("Version"))
+
+        header = QHBoxLayout()
+        header.addWidget(QLabel("Version"))
+        header.addStretch()
+        self.version_poll_toggle = QToolButton()
+        self.version_poll_toggle.setCheckable(True)
+        self.version_poll_toggle.setChecked(True)
+        self.version_poll_toggle.setText("On")
+        self.version_poll_toggle.setFixedWidth(50)
+        self.version_poll_toggle.clicked.connect(self.toggle_version_polling)
+        header.addWidget(self.version_poll_toggle)
+        versionLayout.addLayout(header)
+
         self.version_bar = QProgressBar()
         self.version_bar.setTextVisible(False)
         self.version_bar.setFixedHeight(4)
@@ -324,22 +333,34 @@ class MainWindow(QMainWindow):
         return versionLayout
 
     def generate_battery_layout(self):
-            batteryLayout = DVBoxLayout()
-            batteryLayout.setColor(c.secondary)
-            batteryLayout.addWidget(QLabel("Battery"))
-            self.battery_bar = QProgressBar()
-            self.battery_bar.setTextVisible(False)
-            self.battery_bar.setFixedHeight(4)
-            self.battery_bar.setStyleSheet(
-                """
-                QProgressBar {border:1px solid #555;border-radius:2px;background:#eee;}
-                QProgressBar::chunk {background-color:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #66f,stop:1 #9cf);}
-                """
-            )
-            batteryLayout.addWidget(self.battery_bar)
-            self.battery_display = QTextEdit(readOnly=True)
-            batteryLayout.addWidget(self.battery_display)
-            return batteryLayout
+        batteryLayout = DVBoxLayout()
+        batteryLayout.setColor(c.secondary)
+
+        header = QHBoxLayout()
+        header.addWidget(QLabel("Battery"))
+        header.addStretch()
+        self.battery_poll_toggle = QToolButton()
+        self.battery_poll_toggle.setCheckable(True)
+        self.battery_poll_toggle.setChecked(True)
+        self.battery_poll_toggle.setText("On")
+        self.battery_poll_toggle.setFixedWidth(50)
+        self.battery_poll_toggle.clicked.connect(self.toggle_battery_polling)
+        header.addWidget(self.battery_poll_toggle)
+        batteryLayout.addLayout(header)
+
+        self.battery_bar = QProgressBar()
+        self.battery_bar.setTextVisible(False)
+        self.battery_bar.setFixedHeight(4)
+        self.battery_bar.setStyleSheet(
+            """
+            QProgressBar {border:1px solid #555;border-radius:2px;background:#eee;}
+            QProgressBar::chunk {background-color:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #66f,stop:1 #9cf);}
+            """
+        )
+        batteryLayout.addWidget(self.battery_bar)
+        self.battery_display = QTextEdit(readOnly=True)
+        batteryLayout.addWidget(self.battery_display)
+        return batteryLayout
 
     def generate_plot_layout(self):
             plotLayout = DVBoxLayout()
@@ -439,30 +460,21 @@ class MainWindow(QMainWindow):
             self.send_command(".sl", silent=True)
             self.worker.stop()
             self.worker = None
+        self.silent_queue.clear()
+        self.current_cmd = None
+        self.current_silent = False
         self.reconnecting = False
         self.awaiting_vr = False
         self.received_response = False
         self.connect_poll_timer.stop()
         self.pending_port = None
-        self.progress = 0
+        self.version_progress = 0
+        self.battery_progress = 0
         self.version_bar.setValue(0)
         self.battery_bar.setValue(0)
         self.scanning = False
         self.pending_tag = None
         self.status_label.setText("🔌 Disconnected")
-
-    def toggle_polling(self):
-        """Turn automatic status polling on or off."""
-        self.poll_enabled = self.poll_toggle.isChecked()
-        self.poll_toggle.setText("Polling On" if self.poll_enabled else "Polling Off")
-        if self.poll_enabled and self.worker:
-            self.poll_status()
-
-    def poll_status(self):
-        """Issue queued commands for status updates."""
-        for cmd in (".vr", ".bl"):
-            self.send_command(cmd, silent=True)
-        self.progress = 0
 
     def poll_connection(self):
         """Rapidly poll for a version response while connecting."""
@@ -470,6 +482,36 @@ class MainWindow(QMainWindow):
             self.connect_poll_timer.stop()
             return
         self.send_command(".vr", silent=True)
+
+    def poll_version(self):
+        """Request version information from the reader."""
+        self.send_command(".vr", silent=True)
+        self.version_progress = 0
+        self.version_bar.setValue(0)
+
+    def poll_battery(self):
+        """Request battery information from the reader."""
+        self.send_command(".bl", silent=True)
+        self.battery_progress = 0
+        self.battery_bar.setValue(0)
+
+    def toggle_version_polling(self):
+        """Turn automatic version polling on or off."""
+        self.version_poll_enabled = self.version_poll_toggle.isChecked()
+        self.version_poll_toggle.setText(
+            "On" if self.version_poll_enabled else "Off"
+        )
+        if self.version_poll_enabled and self.worker:
+            self.poll_version()
+
+    def toggle_battery_polling(self):
+        """Turn automatic battery polling on or off."""
+        self.battery_poll_enabled = self.battery_poll_toggle.isChecked()
+        self.battery_poll_toggle.setText(
+            "On" if self.battery_poll_enabled else "Off"
+        )
+        if self.battery_poll_enabled and self.worker:
+            self.poll_battery()
 
     def clear_console(self):
         """Clear the log output area."""
@@ -502,7 +544,9 @@ class MainWindow(QMainWindow):
 
         if silent:
             for part in cmd.split(";"):
-                self.silent_queue.append(part.strip())
+                part = part.strip().lower()
+                if part:
+                    self.silent_queue.append(part)
 
         self.worker.write(cmd, not silent)
         self.input.clear()
@@ -532,6 +576,9 @@ class MainWindow(QMainWindow):
         """Handle reader connection."""
         self.status_label.setText(f"✅ Connected")
         self.connect_poll_timer.stop()
+        self.silent_queue.clear()
+        self.current_cmd = None
+        self.current_silent = False
         if not self.reconnecting:
             self.tag_counts.clear()
             self.tag_strengths.clear()
@@ -539,8 +586,10 @@ class MainWindow(QMainWindow):
             self.update_strength_plot()
         self.send_inventory_setup()
         self.scanning = True
-        if self.poll_enabled:
-            self.poll_status()
+        if self.version_poll_enabled:
+            self.poll_version()
+        if self.battery_poll_enabled:
+            self.poll_battery()
         self.reconnecting = False
 
     def on_disconnected(self):
@@ -549,7 +598,11 @@ class MainWindow(QMainWindow):
             self.status_label.setText("🔄 Reconnecting")
         else:
             self.status_label.setText("🔌 Disconnected")
-        self.progress = 0
+        self.silent_queue.clear()
+        self.current_cmd = None
+        self.current_silent = False
+        self.version_progress = 0
+        self.battery_progress = 0
         self.version_bar.setValue(0)
         self.battery_bar.setValue(0)
         self.scanning = False
@@ -569,7 +622,7 @@ class MainWindow(QMainWindow):
 
     def on_command_sent(self, cmd: str):
         """Log sent commands that aren't silent."""
-        if self.silent_queue and self.silent_queue[0] == cmd:
+        if self.silent_queue and self.silent_queue[0] == cmd.strip().lower():
             return
         self.log.append(f">> {cmd}")
 
@@ -585,8 +638,12 @@ class MainWindow(QMainWindow):
         resp = self.response_parser.feed(line)
 
         if self.response_parser.command and self.current_cmd != self.response_parser.command:
-            self.current_cmd = self.response_parser.command
-            self.current_silent = bool(self.silent_queue and self.silent_queue[0] == self.current_cmd)
+            self.current_cmd = self.response_parser.command.strip().lower()
+            while self.silent_queue and self.silent_queue[0] != self.current_cmd:
+                self.silent_queue.pop(0)
+            self.current_silent = bool(
+                self.silent_queue and self.silent_queue[0] == self.current_cmd
+            )
 
         if resp is None:
             if not self.current_silent:
@@ -752,19 +809,30 @@ class MainWindow(QMainWindow):
 
     def update_progress(self):
         """Advance progress bars and poll when complete."""
-        if not self.poll_enabled or not self.worker:
-            self.progress = 0
+        if not self.worker:
+            self.version_progress = 0
+            self.battery_progress = 0
             self.version_bar.setValue(0)
             self.battery_bar.setValue(0)
             return
 
-        self.progress += 1
-        if self.progress > self.progress_range:
-            self.poll_status()
-            self.progress = 0
+        if self.version_poll_enabled:
+            self.version_progress += 1
+            if self.version_progress > self.progress_range:
+                self.poll_version()
+            self.version_bar.setValue(self.version_progress)
+        else:
+            self.version_progress = 0
+            self.version_bar.setValue(0)
 
-        self.version_bar.setValue(self.progress)
-        self.battery_bar.setValue(self.progress)
+        if self.battery_poll_enabled:
+            self.battery_progress += 1
+            if self.battery_progress > self.progress_range:
+                self.poll_battery()
+            self.battery_bar.setValue(self.battery_progress)
+        else:
+            self.battery_progress = 0
+            self.battery_bar.setValue(0)
 
     def closeEvent(self, e):
         """Cleanly stop the worker before closing."""
