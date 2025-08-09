@@ -437,6 +437,9 @@ class MainWindow(QMainWindow):
             self.send_command(".sl", silent=True)
             self.worker.stop()
             self.worker = None
+        self.silent_queue.clear()
+        self.current_cmd = None
+        self.current_silent = False
         self.reconnecting = False
         self.awaiting_vr = False
         self.received_response = False
@@ -569,6 +572,9 @@ class MainWindow(QMainWindow):
             self.status_label.setText("🔄 Reconnecting")
         else:
             self.status_label.setText("🔌 Disconnected")
+        self.silent_queue.clear()
+        self.current_cmd = None
+        self.current_silent = False
         self.version_progress = 0
         self.battery_progress = 0
         self.version_bar.setValue(0)
