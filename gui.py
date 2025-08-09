@@ -59,52 +59,40 @@ class DebugLayoutMixin:
     def __init__(self, *args, debug: bool = True, **kwargs):
         super().__init__(*args, **kwargs)
         self._debug = debug
-        self._frame: Optional[QFrame] = None
-
+        # Always wrap the layout in a frame so spacing behaves consistently
+        self._frame: QFrame = QFrame()
+        self._frame.setLayout(self)
         if debug:
-            self._frame = QFrame()
-            self._frame.setFrameShape(QFrame.Box)
-            palette = self._frame.palette()
-            palette.setColor(self._frame.backgroundRole(), QColor("#eef"))
-            self._frame.setPalette(palette)
-            self._frame.setAutoFillBackground(True)
-            self._frame.setLayout(self)
-    
+            self.showBorder()
+        else:
+            self.hideBorder()
+
     def setColor(self, color):
-        if self._frame:
-            self._frame.setFrameShape(QFrame.Box)
-            palette = self._frame.palette()
-            palette.setColor(self._frame.backgroundRole(), QColor(color))
-            self._frame.setPalette(palette)
-            self._frame.setAutoFillBackground(True)
+        palette = self._frame.palette()
+        palette.setColor(self._frame.backgroundRole(), QColor(color))
+        self._frame.setPalette(palette)
+        self._frame.setAutoFillBackground(True)
 
     def noMargins(self):
-        self.setContentsMargins(0, 0, 0, 0) # external
-        self.setSpacing(0)  # internal
+        self.setContentsMargins(0, 0, 0, 0)
+        self.setSpacing(0)
+        self._frame.setContentsMargins(0, 0, 0, 0)
 
     def defaultMargins(self):
         self.setContentsMargins(-1, -1, -1, -1)
         self.setSpacing(-1)
+        self._frame.setContentsMargins(-1, -1, -1, -1)
 
     def showBorder(self) -> None:
-        if self._frame:
-            self._frame.setFrameShape(QFrame.Box)
-            palette = self._frame.palette()
-            palette.setColor(self._frame.backgroundRole(), QColor(self._color))
-            self._frame.setPalette(palette)
-            self._frame.setAutoFillBackground(True)
+        self._frame.setFrameShape(QFrame.Box)
 
     def hideBorder(self):
-        if self._frame:
-            self._frame.setFrameShape(QFrame.NoFrame)
-            self._frame.setAutoFillBackground(False)
+        self._frame.setFrameShape(QFrame.NoFrame)
+        self._frame.setAutoFillBackground(False)
 
     def attachTo(self, parent_layout: QLayout, *args) -> None:
-        """Attach to parent layout in the appropriate form."""
-        if self._debug and self._frame is not None:
-            parent_layout.addWidget(self._frame, *args)
-        else:
-            parent_layout.addLayout(self, *args)
+        """Attach to parent layout using the frame wrapper."""
+        parent_layout.addWidget(self._frame, *args)
 
 class DHBoxLayout(DebugLayoutMixin, QHBoxLayout):
     """QHBoxLayout with optional debug border."""
