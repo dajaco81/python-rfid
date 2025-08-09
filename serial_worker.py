@@ -1,6 +1,7 @@
 """Threaded serial communication helper."""
 
 import serial
+import time
 from PyQt5.QtCore import QThread, pyqtSignal
 
 try:  # termios is unavailable on Windows
@@ -37,9 +38,15 @@ class SerialWorker(QThread):
                 rtscts=True,
                 exclusive=False,
             )
-            # Explicitly assert control lines so the reader wakes immediately
-            self.ser.dtr = True
-            self.ser.rts = True
+            # Drop then raise control lines so the reader sees a fresh transition
+            try:
+                self.ser.dtr = False
+                self.ser.rts = False
+                time.sleep(0.05)
+                self.ser.dtr = True
+                self.ser.rts = True
+            except (serial.SerialException, OSError, TermiosError):
+                pass
             self.connected.emit(self.port)
             buf = ""
             while self._running:
