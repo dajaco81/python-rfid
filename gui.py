@@ -166,6 +166,8 @@ class MainWindow(QMainWindow):
         self.version_info: dict[str, str] = {}
         self.battery_info: dict[str, str] = {}
         self.simulator = None
+        self.pending_port: Optional[str] = None
+        self.awaiting_vr = False
 
     def generate_port_layout(self):
         portLayout = DHBoxLayout()
@@ -396,7 +398,7 @@ class MainWindow(QMainWindow):
             return
         self.auto_reconnect = True
         self.worker = SerialWorker(port)
-        self.worker.connected.connect(self.on_connected)
+        self.worker.connected.connect(self.on_port_opened)
         self.worker.disconnected.connect(self.on_disconnected)
         self.worker.line_received.connect(self.process_line)
         self.worker.command_sent.connect(self.on_command_sent)
@@ -411,6 +413,8 @@ class MainWindow(QMainWindow):
             self.worker.stop()
             self.worker = None
         self.reconnecting = False
+        self.awaiting_vr = False
+        self.pending_port = None
         self.progress = 0
         self.version_bar.setValue(0)
         self.battery_bar.setValue(0)
@@ -478,6 +482,13 @@ class MainWindow(QMainWindow):
         self.session_toggle.setText("Zero Persistence" if checked else "Quiet Tags")
         if self.worker:
             self.send_inventory_setup()
+
+    def on_port_opened(self, port: str) -> None:
+        """Verify reader connectivity before finalizing connection."""
+        self.status_label.setText("🔄 Connecting")
+        self.pending_port = port
+        self.awaiting_vr = True
+        self.send_command(".vr", silent=True)
 
     def on_connected(self, port: str):
         """Handle reader connection."""
@@ -554,6 +565,12 @@ class MainWindow(QMainWindow):
         )
         self.update_version_display()
         self.update_battery_display()
+
+        if resp.command == ".vr" and self.awaiting_vr:
+            self.awaiting_vr = False
+            if self.pending_port:
+                self.on_connected(self.pending_port)
+                self.pending_port = None
 
         # Payload lines were already logged as they arrived while collecting the
         # response, so avoid logging them again here. Tag counts are updated by
