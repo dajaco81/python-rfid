@@ -4,6 +4,7 @@
 
 import sys
 import re
+import threading
 import serial
 import serial.tools.list_ports
 from PyQt5.QtWidgets import (
@@ -17,7 +18,7 @@ from PyQt5.QtWidgets import (
     QProgressBar, QSizePolicy,
     QHeaderView, 
 )
-from PyQt5.QtCore import QTimer, QEvent, QObject
+from PyQt5.QtCore import QTimer, QEvent, QObject, pyqtSignal
 from PyQt5.QtGui import QColor
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -108,6 +109,10 @@ class DVBoxLayout(LayoutFrameMixer, QVBoxLayout):
 
 class MainWindow(QMainWindow):
     """Primary application window."""
+
+    # Signal used to hand port scan results back to the GUI thread.
+    ports_scanned = pyqtSignal(object, object, object)
+
     def __init__(self):
         """Configure widgets and initialize member data."""
         super().__init__()
@@ -157,6 +162,10 @@ class MainWindow(QMainWindow):
         self.auto_reconnect = False
         self.reconnecting = False
         self.scanning = False
+
+        # Connect signals
+        self.ports_scanned.connect(self._update_ports_ui)
+
         self.refresh_ports()
 
         self.silent_queue: list[str] = []
@@ -179,9 +188,9 @@ class MainWindow(QMainWindow):
         portLayout.addWidget(QLabel("Port:"))
         self.combo = QComboBox()
         portLayout.addWidget(self.combo)
-        b_refresh = QPushButton("🔄 Refresh")
-        b_refresh.clicked.connect(self.refresh_ports)
-        portLayout.addWidget(b_refresh)
+        self.refresh_button = QPushButton("🔄 Refresh")
+        self.refresh_button.clicked.connect(self.refresh_ports)
+        portLayout.addWidget(self.refresh_button)
         self.status_label = QLabel("🔌 Disconnected")
         portLayout.addWidget(self.status_label)
         return portLayout
@@ -351,7 +360,14 @@ class MainWindow(QMainWindow):
             return False
 
     def refresh_ports(self):
-        """Rescan available serial ports and categorize them."""
+        """Rescan available serial ports without blocking the UI."""
+        if hasattr(self, "refresh_button"):
+            self.refresh_button.setText("🔄 Refreshing")
+            self.refresh_button.setEnabled(False)
+
+        threading.Thread(target=self._refresh_ports_worker, daemon=True).start()
+
+    def _refresh_ports_worker(self):
         ports = serial.tools.list_ports.comports()
         usb = []
         bt = []
@@ -361,6 +377,15 @@ class MainWindow(QMainWindow):
             else:
                 bt.append(p)
 
+        if self.worker:
+            self.worker.stop()
+            self.worker = None
+
+        # Emit results back to the GUI thread; Qt will queue the signal so
+        # `_update_ports_ui` runs in the main event loop.
+        self.ports_scanned.emit(usb, bt, ports)
+
+    def _update_ports_ui(self, usb, bt, ports):
         self.combo.clear()
 
         def _add_group(label, plist):
@@ -383,17 +408,15 @@ class MainWindow(QMainWindow):
         if not ports:
             self.combo.addItem("<no ports>", "")
 
-        # Don't keep a previously selected index that might now refer to a
-        # disabled header. Select the first real port or nothing.
         self.combo.setCurrentIndex(-1)
         for i in range(self.combo.count()):
             if self.combo.itemData(i):
                 self.combo.setCurrentIndex(i)
                 break
 
-        if self.worker:
-            self.worker.stop()
-            self.worker = None
+        if hasattr(self, "refresh_button"):
+            self.refresh_button.setText("🔄 Refresh")
+            self.refresh_button.setEnabled(True)
 
     def connect_serial(self):
         """Create and start the worker for the chosen port."""
