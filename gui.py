@@ -168,6 +168,10 @@ class MainWindow(QMainWindow):
         self.simulator = None
         self.pending_port: Optional[str] = None
         self.awaiting_vr = False
+        self.received_response = False
+        self.connect_poll_timer = QTimer(self)
+        self.connect_poll_timer.setInterval(250)
+        self.connect_poll_timer.timeout.connect(self.poll_connection)
 
     def generate_port_layout(self):
         portLayout = DHBoxLayout()
@@ -414,6 +418,8 @@ class MainWindow(QMainWindow):
             self.worker = None
         self.reconnecting = False
         self.awaiting_vr = False
+        self.received_response = False
+        self.connect_poll_timer.stop()
         self.pending_port = None
         self.progress = 0
         self.version_bar.setValue(0)
@@ -434,6 +440,13 @@ class MainWindow(QMainWindow):
         for cmd in (".vr", ".bl"):
             self.send_command(cmd, silent=True)
         self.progress = 0
+
+    def poll_connection(self):
+        """Rapidly poll for a version response while connecting."""
+        if not self.worker or not self.awaiting_vr or self.received_response:
+            self.connect_poll_timer.stop()
+            return
+        self.send_command(".vr", silent=True)
 
     def clear_console(self):
         """Clear the log output area."""
@@ -488,11 +501,14 @@ class MainWindow(QMainWindow):
         self.status_label.setText("🔄 Connecting")
         self.pending_port = port
         self.awaiting_vr = True
+        self.received_response = False
         self.send_command(".vr", silent=True)
+        self.connect_poll_timer.start()
 
     def on_connected(self, port: str):
         """Handle reader connection."""
         self.status_label.setText(f"✅ Connected")
+        self.connect_poll_timer.stop()
         if not self.reconnecting:
             self.tag_counts.clear()
             self.tag_strengths.clear()
@@ -515,6 +531,10 @@ class MainWindow(QMainWindow):
         self.battery_bar.setValue(0)
         self.scanning = False
         self.pending_tag = None
+        self.awaiting_vr = False
+        self.received_response = False
+        self.pending_port = None
+        self.connect_poll_timer.stop()
         worker = self.worker
         self.worker = None
         if worker:
@@ -532,6 +552,9 @@ class MainWindow(QMainWindow):
 
     def process_line(self, line: str):
         """Process a single line of reader output."""
+        if self.awaiting_vr and not self.received_response:
+            self.received_response = True
+            self.connect_poll_timer.stop()
         if line.startswith("EP:") or line.startswith("RI:"):
             self.handle_inventory_line(line)
             return
