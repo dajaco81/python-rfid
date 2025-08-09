@@ -34,10 +34,13 @@ class SerialWorker(QThread):
                     break
                 if raw:
                     buf = self._emit_lines(buf, raw)
+        except (serial.SerialException, OSError):
+            # Opening the port failed or the connection dropped
+            pass
         finally:
             if self.ser and self.ser.is_open:
                 self.ser.close()
-                self.disconnected.emit()
+            self.disconnected.emit()
 
     def _emit_lines(self, buf: str, raw: str) -> str:
         """Emit complete lines from serial data and return remaining buffer.
