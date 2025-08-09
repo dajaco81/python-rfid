@@ -47,6 +47,12 @@ class c:
     white     = "#ffffff"
     black     = "#000000"
 
+    primary   = "#267365"
+    secondary = "#F29F05"
+    tertiary  = "#F28705"
+    highlight = "#F2CB05"
+    alert     = "#F23030"
+
 class MplCanvas(FigureCanvas):
     """Simple matplotlib canvas for live plots."""
 
@@ -111,7 +117,10 @@ class MainWindow(QMainWindow):
         canvas = QWidget()
         self.setCentralWidget(canvas)
 
-        root = QHBoxLayout(canvas)
+        
+        root = DHBoxLayout()
+        root.setColor(c.primary)
+        root.attachTo(canvas)
         root.setSpacing(LayoutFrameMixer.DEFAULT_SPACING)
 
         left_container = DVBoxLayout()
