@@ -18,7 +18,7 @@ from PyQt5.QtWidgets import (
     QProgressBar, QSizePolicy,
     QHeaderView, 
 )
-from PyQt5.QtCore import QTimer, QEvent, QObject
+from PyQt5.QtCore import QTimer, QEvent, QObject, pyqtSignal
 from PyQt5.QtGui import QColor
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -109,6 +109,10 @@ class DVBoxLayout(LayoutFrameMixer, QVBoxLayout):
 
 class MainWindow(QMainWindow):
     """Primary application window."""
+
+    # Signal used to hand port scan results back to the GUI thread.
+    ports_scanned = pyqtSignal(object, object, object)
+
     def __init__(self):
         """Configure widgets and initialize member data."""
         super().__init__()
@@ -158,6 +162,10 @@ class MainWindow(QMainWindow):
         self.auto_reconnect = False
         self.reconnecting = False
         self.scanning = False
+
+        # Connect signals
+        self.ports_scanned.connect(self._update_ports_ui)
+
         self.refresh_ports()
 
         self.silent_queue: list[str] = []
@@ -373,11 +381,9 @@ class MainWindow(QMainWindow):
             self.worker.stop()
             self.worker = None
 
-        # Schedule the UI update back on the main thread. When QTimer.singleShot
-        # is invoked without a receiver from a worker thread, the timer lives in
-        # that thread and never fires because there's no event loop. Passing
-        # `self` as the receiver ensures the callback executes in the GUI thread.
-        QTimer.singleShot(0, self, lambda: self._update_ports_ui(usb, bt, ports))
+        # Emit results back to the GUI thread; Qt will queue the signal so
+        # `_update_ports_ui` runs in the main event loop.
+        self.ports_scanned.emit(usb, bt, ports)
 
     def _update_ports_ui(self, usb, bt, ports):
         self.combo.clear()
