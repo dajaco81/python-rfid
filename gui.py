@@ -7,23 +7,17 @@ import re
 import serial
 import serial.tools.list_ports
 from PyQt5.QtWidgets import (
-    QApplication,
-    QMainWindow,
-    QWidget,
-    QLabel,
-    QLayout,
-    QPushButton,
-    QComboBox,
-    QLineEdit,
-    QTextEdit,
-    QFrame,
-    QHBoxLayout,
-    QVBoxLayout,
-    QTableWidget,
-    QTableWidgetItem,
-    QProgressBar,
+    QApplication, QMainWindow,
+    QWidget, QLabel,
+    QLayout, QPushButton,
+    QComboBox, QLineEdit,
+    QTextEdit, QFrame,
+    QHBoxLayout, QVBoxLayout,
+    QTableWidget, QTableWidgetItem,
+    QProgressBar, QSizePolicy,
+    QHeaderView, 
 )
-from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtCore import QTimer, QEvent, QObject
 from PyQt5.QtGui import QColor
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -219,24 +213,42 @@ class MainWindow(QMainWindow):
 
     def generate_table_layout(self):
         tableLayout = DVBoxLayout(color=c.orange)
-        b_clear_table = QPushButton("Clear Tags")
-        b_clear_table.clicked.connect(self.clear_table)
+        b_clear_table = QPushButton("Clear Tags"); b_clear_table.clicked.connect(self.clear_table)
         tableLayout.addWidget(b_clear_table)
 
-        self.tag_counts = {}
-        self.tag_strengths: dict[str, list[float]] = {}
-        self.tag_min_strengths: dict[str, float] = {}
-        self.tag_max_strengths: dict[str, float] = {}
-        # Maximum number of signal strength samples to retain per tag
+        self.tag_counts, self.tag_strengths, self.tag_min_strengths, self.tag_max_strengths = {}, {}, {}, {}
         self.strength_history_len = STRENGTH_HISTORY_LEN
-        self.pending_tag: Optional[str] = None
-        self.selected_tag: Optional[str] = None
-        self.search_tag: Optional[str] = None
-        self.search_tag_seen = False
+        self.pending_tag = self.selected_tag = self.search_tag = None; self.search_tag_seen = False
+
         self.table = QTableWidget(0, 4)
-        self.table.setHorizontalHeaderLabels(["Tag", "Count", "Min Strength", "Max Strength"])
+        self.table.setHorizontalHeaderLabels(["Tag","Count","Min Strength","Max Strength"])
         self.table.itemSelectionChanged.connect(self.on_table_selection_changed)
-        tableLayout.addWidget(self.table)
+        self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.Interactive)  # user-resizable for all
+
+        # --- Stretch-first-column behavior (interactive) ---
+        def _stretch_first():
+            tot = self.table.viewport().width()
+            others = sum(self.table.columnWidth(i) for i in range(1, self.table.columnCount()))
+            w = max(120, tot - others - 2)  # min width; tweak as needed
+            self.table.setColumnWidth(0, w)
+
+        class _EF(QObject):  # resize event filter
+            def __init__(self, cb, parent=None): super().__init__(parent); self.cb=cb
+            def eventFilter(self, obj, ev): 
+                if ev.type()==QEvent.Resize: self.cb()
+                return False
+
+        self._tbl_ef = _EF(_stretch_first, self.table)
+        self.table.installEventFilter(self._tbl_ef)              # table resized
+        self.table.viewport().installEventFilter(self._tbl_ef)   # viewport resized
+        header.sectionResized.connect(lambda *_: _stretch_first())  # any column changed
+        _stretch_first()  # initial fit
+        # --- end stretch-first-column ---
+
+        tableLayout.addWidget(self.table, 1)
         return tableLayout
 
     def generate_tag_search_layout(self):
