@@ -62,7 +62,7 @@ class MplCanvas(FigureCanvas):
 class DebugLayoutMixin:
     """Mixin adding optional debug framing to layouts."""
 
-    def __init__(self, *args, debug: bool = False, color: str = "#eef", **kwargs):
+    def __init__(self, *args, debug: bool = True, color: str = "#eef", **kwargs):
         super().__init__(*args, **kwargs)
         self._debug = debug
         self._color = color
@@ -91,18 +91,21 @@ class DebugLayoutMixin:
             self._frame.setFrameShape(QFrame.NoFrame)
             self._frame.setAutoFillBackground(False)
 
-    def attachTo(self, parent_layout: QLayout) -> None:
+    def attachTo(self, parent_layout: QLayout, *args) -> None:
         """Attach to parent layout in the appropriate form."""
         if self._debug and self._frame is not None:
-            parent_layout.addWidget(self._frame)
+            parent_layout.addWidget(self._frame, *args)
         else:
-            parent_layout.addLayout(self)
+            parent_layout.addLayout(self, *args)
 
-
-class DebugHBoxLayout(DebugLayoutMixin, QHBoxLayout):
+class DHBoxLayout(DebugLayoutMixin, QHBoxLayout):
     """QHBoxLayout with optional debug border."""
+    def __init__(self, *args, debug: bool = True, color: str = "#eef", **kwargs):
+        super().__init__(*args, debug=debug, color=color, **kwargs)
 
-    def __init__(self, *args, debug: bool = False, color: str = "#eef", **kwargs):
+class DVBoxLayout(DebugLayoutMixin, QVBoxLayout):
+    """QHBoxLayout with optional debug border."""
+    def __init__(self, *args, debug: bool = True, color: str = "#eef", **kwargs):
         super().__init__(*args, debug=debug, color=color, **kwargs)
 
 class MainWindow(QMainWindow):
@@ -114,47 +117,49 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("TSL 1128 Interface")
         self.resize(1200, 800)
 
-        w = QWidget()
-        self.setCentralWidget(w)
-        root = QHBoxLayout(w)
-        left_layout = QVBoxLayout()
-        root.addLayout(left_layout, 1)
-        right_layout = QVBoxLayout()
-        root.addLayout(right_layout)
+        canvas = QWidget()
+        self.setCentralWidget(canvas)
+
+        rootLayout = QHBoxLayout(canvas)
+
+        left_layout = DVBoxLayout(color=c.mint)
+        right_layout = DVBoxLayout(color=c.gray)
+        left_layout.attachTo(rootLayout, 1)
+        right_layout.attachTo(rootLayout)
 
         # Port selector + Refresh
-        h1 = DebugHBoxLayout(debug=True, color=c.red)
-        h1.addWidget(QLabel("Port:"))
+        portLayout = DHBoxLayout(color=c.red)
+        portLayout.addWidget(QLabel("Port:"))
         self.combo = QComboBox()
-        h1.addWidget(self.combo)
+        portLayout.addWidget(self.combo)
         b_refresh = QPushButton("🔄 Refresh")
         b_refresh.clicked.connect(self.refresh_ports)
-        h1.addWidget(b_refresh)
-        h1.attachTo(left_layout)
+        portLayout.addWidget(b_refresh)
+        portLayout.attachTo(left_layout)
 
         # Connect/Disconnect
-        h0 = DebugHBoxLayout(debug=True, color=c.blue)
+        connectLayout = DHBoxLayout(color=c.blue)
         for name, slot in [
             ("Connect", self.connect_serial),
             ("Disconnect", self.disconnect_serial),
         ]:
             b = QPushButton(name)
             b.clicked.connect(slot)
-            h0.addWidget(b)
+            connectLayout.addWidget(b)
         self.poll_toggle = QPushButton("Polling On")
         self.poll_toggle.setCheckable(True)
         self.poll_toggle.setChecked(True)
         self.poll_toggle.clicked.connect(self.toggle_polling)
-        h0.addWidget(self.poll_toggle)
+        connectLayout.addWidget(self.poll_toggle)
         self.session_toggle = QPushButton("Quiet Tags")
         self.session_toggle.setCheckable(True)
         self.session_toggle.setChecked(False)
         self.session_toggle.toggled.connect(self.toggle_session)
-        h0.addWidget(self.session_toggle)
-        h0.attachTo(left_layout)
+        connectLayout.addWidget(self.session_toggle)
+        connectLayout.attachTo(left_layout)
 
         # Shortcuts
-        h2 = DebugHBoxLayout(debug=True, color=c.cyan)
+        shortcutsLayout = DHBoxLayout(color=c.cyan)
         for txt, cmd in [
             ("Version", ".vr"),
             ("Battery", ".bl"),
@@ -162,29 +167,32 @@ class MainWindow(QMainWindow):
         ]:
             btn = QPushButton(txt)
             btn.clicked.connect(lambda _, c=cmd: self.send_command(c))
-            h2.addWidget(btn)
-        h2.attachTo(left_layout)
+            shortcutsLayout.addWidget(btn)
+        shortcutsLayout.attachTo(left_layout)
 
         # Manual
-        h3 = DebugHBoxLayout(debug=True, color=c.orange)
-        h3.addWidget(QLabel("Command:"))
+        commandLayout = DHBoxLayout(color=c.orange)
+        commandLayout.addWidget(QLabel("Command:"))
         self.input = QLineEdit()
-        h3.addWidget(self.input)
+        commandLayout.addWidget(self.input)
         b_send = QPushButton("Send")
         b_send.clicked.connect(lambda: self.send_command(self.input.text()))
-        h3.addWidget(b_send)
-        h3.attachTo(left_layout)
+        commandLayout.addWidget(b_send)
+        commandLayout.attachTo(left_layout)
 
         # Log + Table
+        logLayout = DVBoxLayout(color=c.blue)
         self.log = QTextEdit(readOnly=True)
-        left_layout.addWidget(self.log)
+        logLayout.addWidget(self.log)
         b_clear = QPushButton("Clear Console")
         b_clear.clicked.connect(self.clear_console)
-        left_layout.addWidget(b_clear)
+        logLayout.addWidget(b_clear)
+        logLayout.attachTo(left_layout)
 
+        tableLayout = DVBoxLayout(color=c.orange)
         b_clear_table = QPushButton("Clear Tags")
         b_clear_table.clicked.connect(self.clear_table)
-        left_layout.addWidget(b_clear_table)
+        tableLayout.addWidget(b_clear_table)
 
         self.tag_counts = {}
         self.tag_strengths: dict[str, list[float]] = {}
@@ -199,14 +207,16 @@ class MainWindow(QMainWindow):
         self.table = QTableWidget(0, 4)
         self.table.setHorizontalHeaderLabels(["Tag", "Count", "Min Strength", "Max Strength"])
         self.table.itemSelectionChanged.connect(self.on_table_selection_changed)
-        left_layout.addWidget(self.table)
-        h_search = QHBoxLayout()
-        h_search.addWidget(QLabel("Search Tag:"))
+        tableLayout.addWidget(self.table)
+        tableLayout.attachTo(left_layout)
+
+        tagSearchLayout = DHBoxLayout(color=c.red)
+        tagSearchLayout.addWidget(QLabel("Search Tag:"))
         self.tag_search_input = QLineEdit()
         self.tag_search_input.setPlaceholderText("Enter tag")
         self.tag_search_input.textChanged.connect(self.on_search_tag_changed)
-        h_search.addWidget(self.tag_search_input)
-        left_layout.addLayout(h_search)
+        tagSearchLayout.addWidget(self.tag_search_input)
+        tagSearchLayout.attachTo(left_layout)
 
         # Right side info containers
         right_layout.addWidget(QLabel("Version"))
