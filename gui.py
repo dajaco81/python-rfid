@@ -518,8 +518,9 @@ class MainWindow(QMainWindow):
 
         if silent:
             for part in cmd.split(";"):
-                part = part.strip()
-                self.silent_queue.append(part.lstrip(".").upper())
+                part = part.strip().lower()
+                if part:
+                    self.silent_queue.append(part)
 
         self.worker.write(cmd, not silent)
         self.input.clear()
@@ -589,7 +590,7 @@ class MainWindow(QMainWindow):
 
     def on_command_sent(self, cmd: str):
         """Log sent commands that aren't silent."""
-        if self.silent_queue and self.silent_queue[0] == cmd.lstrip(".").upper():
+        if self.silent_queue and self.silent_queue[0] == cmd.strip().lower():
             return
         self.log.append(f">> {cmd}")
 
@@ -605,8 +606,10 @@ class MainWindow(QMainWindow):
         resp = self.response_parser.feed(line)
 
         if self.response_parser.command and self.current_cmd != self.response_parser.command:
-            self.current_cmd = self.response_parser.command
-            self.current_silent = bool(self.silent_queue and self.silent_queue[0] == self.current_cmd)
+            self.current_cmd = self.response_parser.command.strip().lower()
+            self.current_silent = bool(
+                self.silent_queue and self.silent_queue[0] == self.current_cmd
+            )
 
         if resp is None:
             if not self.current_silent:
