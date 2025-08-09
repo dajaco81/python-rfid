@@ -1,16 +1,9 @@
-"""Utility functions for signal strength conversion."""
+# utils.py
+# This file contains utility functions for the RFID application.
 
-
-def strength_to_percentage(strength: float) -> int:
-    """Convert RSSI strength in dBm to a percentage.
-
-    Strength values at or below -90 map to 0 and values at or above -25 map to
-    100. Values between are scaled linearly.
+def strength_to_percentage(strength_val: int) -> float:
     """
-    if strength <= -90:
-        return 0
-    if strength >= -25:
-        return 100
-    # Linear interpolation over the range [-90, -25]
-    return int(round((strength + 90) * 100 / 65))
-
+    Convert a raw signal strength value to a percentage (0-100).
+    The TSL 1128 reader provides values from 0 to 1000.
+    """
+    return (strength_val / 1000) * 100

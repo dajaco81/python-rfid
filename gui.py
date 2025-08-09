@@ -22,6 +22,7 @@ from PyQt5.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QProgressBar,
+    QFileDialog,
 )
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QColor
@@ -34,6 +35,8 @@ from serial_worker import SerialWorker
 from parsers import ResponseParser, parse_payload
 from utils import strength_to_percentage
 from constants import STRENGTH_HISTORY_LEN
+
+from read import ProductDataManager
 
 # endregion
 
@@ -269,6 +272,15 @@ class MainWindow(QMainWindow):
         self.response_parser = ResponseParser()
         self.version_info: dict[str, str] = {}
         self.battery_info: dict[str, str] = {}
+
+        
+        self.data_manager = ProductDataManager("default_products.csv", "default_stock.csv")
+        self.btn_load_products = QPushButton("Load Products CSV")
+
+        # 3. Connect button click to a method that handles file loading
+        self.btn_load_products.clicked.connect(self.load_products_csv)
+
+        
 
     @staticmethod
     def _port_available(dev: str) -> bool:
@@ -620,6 +632,22 @@ class MainWindow(QMainWindow):
         if self.worker:
             self.worker.stop()
         e.accept()
+
+    def load_products_csv(self):
+        # Open file dialog for CSV selection
+        options = QFileDialog.Options()
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Products CSV file",
+            "",
+            "CSV Files (*.csv);;All Files (*)",
+            options=options,
+        )
+        if file_path:
+            self.data_manager.load_products_from_file(file_path)
+            # Optional: update GUI to reflect loaded data, e.g., refresh tables or lists
+            print(f"Loaded products from {file_path}")
+
 
 
 def main() -> None:
