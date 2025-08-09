@@ -373,7 +373,11 @@ class MainWindow(QMainWindow):
             self.worker.stop()
             self.worker = None
 
-        QTimer.singleShot(0, lambda: self._update_ports_ui(usb, bt, ports))
+        # Schedule the UI update back on the main thread. When QTimer.singleShot
+        # is invoked without a receiver from a worker thread, the timer lives in
+        # that thread and never fires because there's no event loop. Passing
+        # `self` as the receiver ensures the callback executes in the GUI thread.
+        QTimer.singleShot(0, self, lambda: self._update_ports_ui(usb, bt, ports))
 
     def _update_ports_ui(self, usb, bt, ports):
         self.combo.clear()
