@@ -115,7 +115,7 @@ class MainWindow(QMainWindow):
         root.setSpacing(LayoutFrameMixer.DEFAULT_SPACING)
 
         left_container = DVBoxLayout()
-        left_container.setColor(c.mint)
+        left_container.setColor(None)
         left_container.noMargins()
         self.generate_port_layout().attachTo(left_container)
         self.generate_connection_layout().attachTo(left_container)
@@ -127,7 +127,7 @@ class MainWindow(QMainWindow):
         left_container.attachTo(root, 1)
 
         right_container = DVBoxLayout()
-        right_container.setColor(c.mint)
+        right_container.setColor(None)
         right_container.noMargins()
         self.generate_version_layout().attachTo(right_container)
         self.generate_battery_layout().attachTo(right_container)
