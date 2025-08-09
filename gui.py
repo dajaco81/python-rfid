@@ -56,28 +56,35 @@ class MplCanvas(FigureCanvas):
 class DebugLayoutMixin:
     """Mixin adding optional debug framing to layouts."""
 
-    def __init__(self, *args, debug: bool = True, color: str = "#eef", **kwargs):
+    def __init__(self, *args, debug: bool = True, **kwargs):
         super().__init__(*args, **kwargs)
         self._debug = debug
-        self._color = color
         self._frame: Optional[QFrame] = None
 
         if debug:
             self._frame = QFrame()
             self._frame.setFrameShape(QFrame.Box)
             palette = self._frame.palette()
-            palette.setColor(self._frame.backgroundRole(), QColor(color))
+            palette.setColor(self._frame.backgroundRole(), QColor("#eef"))
             self._frame.setPalette(palette)
             self._frame.setAutoFillBackground(True)
             self._frame.setLayout(self)
     
+    def setColor(self, color):
+        if self._frame:
+            self._frame.setFrameShape(QFrame.Box)
+            palette = self._frame.palette()
+            palette.setColor(self._frame.backgroundRole(), QColor(color))
+            self._frame.setPalette(palette)
+            self._frame.setAutoFillBackground(True)
+
     def noMargins(self):
-        self.setContentsMargins(0, 0, 0, 0)  # Remove external margins
-        self.setSpacing(0)  # Remove inter-object margins
+        self.setContentsMargins(0, 0, 0, 0) # external
+        self.setSpacing(0)  # internal
 
     def defaultMargins(self):
-        self.setContentsMargins(-1, -1, -1, -1)  # Remove external margins
-        self.setSpacing(-1)  # Remove inter-object margins
+        self.setContentsMargins(-1, -1, -1, -1)
+        self.setSpacing(-1)
 
     def showBorder(self) -> None:
         if self._frame:
@@ -101,13 +108,13 @@ class DebugLayoutMixin:
 
 class DHBoxLayout(DebugLayoutMixin, QHBoxLayout):
     """QHBoxLayout with optional debug border."""
-    def __init__(self, *args, debug: bool = True, color: str = "#eef", **kwargs):
-        super().__init__(*args, debug=debug, color=color, **kwargs)
+    def __init__(self, *args, debug: bool = True, **kwargs):
+        super().__init__(*args, debug=debug, **kwargs)
 
 class DVBoxLayout(DebugLayoutMixin, QVBoxLayout):
     """QVBoxLayout with optional debug border."""
-    def __init__(self, *args, debug: bool = True, color: str = "#eef", **kwargs):
-        super().__init__(*args, debug=debug, color=color, **kwargs)
+    def __init__(self, *args, debug: bool = True, **kwargs):
+        super().__init__(*args, debug=debug, **kwargs)
 
 class MainWindow(QMainWindow):
     """Primary application window."""
@@ -122,7 +129,8 @@ class MainWindow(QMainWindow):
 
         rootLayout = QHBoxLayout(canvas)
 
-        left_layout = DVBoxLayout(color=c.mint)
+        left_layout = DVBoxLayout()
+        left_layout.setColor(c.mint)
         left_layout.noMargins()
         self.generate_port_layout().attachTo(left_layout)
         self.generate_connection_layout().attachTo(left_layout)
@@ -133,7 +141,8 @@ class MainWindow(QMainWindow):
         self.generate_tag_search_layout().attachTo(left_layout)
         left_layout.attachTo(rootLayout, 1)
 
-        right_layout = DVBoxLayout(color=c.gray)
+        right_layout = DVBoxLayout()
+        right_layout.setColor(c.gray)
         right_layout.noMargins()
         self.generate_version_layout().attachTo(right_layout)
         self.generate_battery_layout().attachTo(right_layout)
@@ -168,17 +177,19 @@ class MainWindow(QMainWindow):
         self.battery_info: dict[str, str] = {}
 
     def generate_port_layout(self):
-            portLayout = DHBoxLayout(color=c.red)
-            portLayout.addWidget(QLabel("Port:"))
-            self.combo = QComboBox()
-            portLayout.addWidget(self.combo)
-            b_refresh = QPushButton("🔄 Refresh")
-            b_refresh.clicked.connect(self.refresh_ports)
-            portLayout.addWidget(b_refresh)
-            return portLayout
+        portLayout = DHBoxLayout(debug=False)
+        portLayout.setColor(c.red)
+        portLayout.addWidget(QLabel("Port:"))
+        self.combo = QComboBox()
+        portLayout.addWidget(self.combo)
+        b_refresh = QPushButton("🔄 Refresh")
+        b_refresh.clicked.connect(self.refresh_ports)
+        portLayout.addWidget(b_refresh)
+        return portLayout
 
     def generate_connection_layout(self):
-        connectionLayout = DHBoxLayout(color=c.blue)
+        connectionLayout = DHBoxLayout(debug=True)
+        connectionLayout.setColor(c.blue)
         for name, slot in [
             ("Connect", self.connect_serial),
             ("Disconnect", self.disconnect_serial),
@@ -199,7 +210,8 @@ class MainWindow(QMainWindow):
         return connectionLayout
 
     def generate_shortcuts_layout(self):
-        shortcutsLayout = DHBoxLayout(color=c.cyan)
+        shortcutsLayout = DHBoxLayout()
+        shortcutsLayout.setColor(c.cyan)
         for txt, cmd in [
             ("Version", ".vr"),
             ("Battery", ".bl"),
@@ -211,7 +223,8 @@ class MainWindow(QMainWindow):
         return shortcutsLayout    
 
     def generate_log_layout(self):
-        logLayout = DVBoxLayout(color=c.blue)
+        logLayout = DVBoxLayout()
+        logLayout.setColor(c.blue)
         self.log = QTextEdit(readOnly=True)
         logLayout.addWidget(self.log)
         b_clear = QPushButton("Clear Console")
@@ -220,7 +233,8 @@ class MainWindow(QMainWindow):
         return logLayout
 
     def generate_table_layout(self):
-        tableLayout = DVBoxLayout(color=c.orange)
+        tableLayout = DVBoxLayout()
+        tableLayout.setColor(c.orange)
         b_clear_table = QPushButton("Clear Tags"); b_clear_table.clicked.connect(self.clear_table)
         tableLayout.addWidget(b_clear_table)
 
@@ -260,7 +274,8 @@ class MainWindow(QMainWindow):
         return tableLayout
 
     def generate_tag_search_layout(self):
-        tagSearchLayout = DHBoxLayout(color=c.red)
+        tagSearchLayout = DHBoxLayout()
+        tagSearchLayout.setColor(c.red)
         tagSearchLayout.addWidget(QLabel("Search Tag:"))
         self.tag_search_input = QLineEdit()
         self.tag_search_input.setPlaceholderText("Enter tag")
@@ -269,17 +284,19 @@ class MainWindow(QMainWindow):
         return tagSearchLayout
     
     def generate_command_layout(self):
-            commandLayout = DHBoxLayout(color=c.orange)
-            commandLayout.addWidget(QLabel("Command:"))
-            self.input = QLineEdit()
-            commandLayout.addWidget(self.input)
-            b_send = QPushButton("Send")
-            b_send.clicked.connect(lambda: self.send_command(self.input.text()))
-            commandLayout.addWidget(b_send)
-            return commandLayout
+        commandLayout = DHBoxLayout()
+        commandLayout.setColor(c.orange)
+        commandLayout.addWidget(QLabel("Command:"))
+        self.input = QLineEdit()
+        commandLayout.addWidget(self.input)
+        b_send = QPushButton("Send")
+        b_send.clicked.connect(lambda: self.send_command(self.input.text()))
+        commandLayout.addWidget(b_send)
+        return commandLayout
 
     def generate_version_layout(self):
         versionLayout = DVBoxLayout()
+        versionLayout.setColor(c.red)
         versionLayout.addWidget(QLabel("Version"))
         self.version_bar = QProgressBar()
         self.version_bar.setTextVisible(False)
@@ -297,6 +314,7 @@ class MainWindow(QMainWindow):
 
     def generate_battery_layout(self):
             batteryLayout = DVBoxLayout()
+            batteryLayout.setColor(c.yellow)
             batteryLayout.addWidget(QLabel("Battery"))
             self.battery_bar = QProgressBar()
             self.battery_bar.setTextVisible(False)
@@ -313,7 +331,8 @@ class MainWindow(QMainWindow):
             return batteryLayout
 
     def generate_plot_layout(self):
-            plotLayout = DVBoxLayout(color=c.green)
+            plotLayout = DVBoxLayout()
+            plotLayout.setColor(c.gray)
             plotLayout.addWidget(QLabel("Signal Strength"))
             self.strength_canvas = MplCanvas()
             plotLayout.addWidget(self.strength_canvas)
