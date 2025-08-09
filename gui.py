@@ -198,9 +198,6 @@ class MainWindow(QMainWindow):
         self.session_toggle.setChecked(False)
         self.session_toggle.toggled.connect(self.toggle_session)
         connectionLayout.addWidget(self.session_toggle)
-        b_sim = QPushButton("Simulator")
-        b_sim.clicked.connect(self.open_simulator)
-        connectionLayout.addWidget(b_sim)
         return connectionLayout
 
     def generate_shortcuts_layout(self):
@@ -214,7 +211,10 @@ class MainWindow(QMainWindow):
             btn = QPushButton(txt)
             btn.clicked.connect(lambda _, c=cmd: self.send_command(c))
             shortcutsLayout.addWidget(btn)
-        return shortcutsLayout    
+        b_sim = QPushButton("Simulator")
+        b_sim.clicked.connect(self.open_simulator)
+        shortcutsLayout.addWidget(b_sim)
+        return shortcutsLayout
 
     def generate_log_layout(self):
         logLayout = DVBoxLayout()
