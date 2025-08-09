@@ -176,6 +176,8 @@ class MainWindow(QMainWindow):
         b_refresh = QPushButton("🔄 Refresh")
         b_refresh.clicked.connect(self.refresh_ports)
         portLayout.addWidget(b_refresh)
+        self.status_label = QLabel("🔌 Disconnected")
+        portLayout.addWidget(self.status_label)
         return portLayout
 
     def generate_connection_layout(self):
@@ -414,6 +416,7 @@ class MainWindow(QMainWindow):
         self.battery_bar.setValue(0)
         self.scanning = False
         self.pending_tag = None
+        self.status_label.setText("🔌 Disconnected")
 
     def toggle_polling(self):
         """Turn automatic status polling on or off."""
@@ -454,7 +457,7 @@ class MainWindow(QMainWindow):
 
         if not self.worker:
             if not silent:
-                self.log.append("⚠️ Not connected")
+                self.status_label.setText("⚠️ Not connected")
             return
 
         if silent:
@@ -478,7 +481,7 @@ class MainWindow(QMainWindow):
 
     def on_connected(self, port: str):
         """Handle reader connection."""
-        self.log.append(f"✅ Connected to {port}")
+        self.status_label.setText(f"✅ Connected to {port}")
         if not self.reconnecting:
             self.tag_counts.clear()
             self.tag_strengths.clear()
@@ -493,11 +496,9 @@ class MainWindow(QMainWindow):
     def on_disconnected(self):
         """Handle reader disconnection."""
         if self.auto_reconnect:
-            if not self.reconnecting:
-                self.log.append("🔌 Disconnected")
-                self.log.append("🔄 Reconnecting...")
+            self.status_label.setText("🔄 Reconnecting...")
         else:
-            self.log.append("🔌 Disconnected")
+            self.status_label.setText("🔌 Disconnected")
         self.progress = 0
         self.version_bar.setValue(0)
         self.battery_bar.setValue(0)
@@ -708,7 +709,6 @@ class MainWindow(QMainWindow):
             self.worker.stop()
         e.accept()
 
-
 class SimulatorWindow(QMainWindow):
     """Window for simulating reader output."""
 
@@ -748,14 +748,12 @@ class SimulatorWindow(QMainWindow):
         self.main_window.simulator = None
         super().closeEvent(e)
 
-
 def main() -> None:
     """Launch the GUI application."""
     app = QApplication(sys.argv)
     mw = MainWindow()
     mw.show()
     sys.exit(app.exec_())
-
 
 if __name__ == "__main__":
     main()
