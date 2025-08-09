@@ -36,6 +36,7 @@ class SerialWorker(QThread):
                     self.port,
                     self.baud,
                     timeout=1,
+                    write_timeout=1,
                     dsrdtr=True,
                     rtscts=True,
                     exclusive=False,
@@ -65,7 +66,8 @@ class SerialWorker(QThread):
             finally:
                 if self.ser and self.ser.is_open:
                     try:
-                        self.ser.flush()
+                        self.ser.reset_output_buffer()
+                        self.ser.reset_input_buffer()
                     except (serial.SerialException, OSError, TermiosError):
                         # Device may already be gone
                         pass
