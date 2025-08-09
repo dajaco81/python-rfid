@@ -165,6 +165,7 @@ class MainWindow(QMainWindow):
         self.response_parser = ResponseParser()
         self.version_info: dict[str, str] = {}
         self.battery_info: dict[str, str] = {}
+        self.simulator = None
 
     def generate_port_layout(self):
         portLayout = DHBoxLayout()
@@ -197,6 +198,9 @@ class MainWindow(QMainWindow):
         self.session_toggle.setChecked(False)
         self.session_toggle.toggled.connect(self.toggle_session)
         connectionLayout.addWidget(self.session_toggle)
+        b_sim = QPushButton("Simulator")
+        b_sim.clicked.connect(self.open_simulator)
+        connectionLayout.addWidget(b_sim)
         return connectionLayout
 
     def generate_shortcuts_layout(self):
@@ -434,8 +438,13 @@ class MainWindow(QMainWindow):
         self.tag_strengths.clear()
         self.tag_min_strengths.clear()
         self.tag_max_strengths.clear()
-        self.update_table()
-        self.update_strength_plot()
+
+    def open_simulator(self) -> None:
+        """Show the simulator window for manual line entry."""
+        if self.simulator is None:
+            self.simulator = SimulatorWindow(self)
+        self.simulator.show()
+        self.simulator.raise_()
 
     def send_command(self, cmd: str, silent: bool = False):
         """Send a command string to the reader."""
@@ -698,6 +707,46 @@ class MainWindow(QMainWindow):
         if self.worker:
             self.worker.stop()
         e.accept()
+
+
+class SimulatorWindow(QMainWindow):
+    """Window for simulating reader output."""
+
+    def __init__(self, main_window: "MainWindow") -> None:
+        super().__init__()
+        self.main_window = main_window
+        self.setWindowTitle("Simulator")
+        root = DVBoxLayout()
+        root.noMargins()
+        self.setCentralWidget(root._frame)
+
+        tag_layout = DHBoxLayout()
+        tag_layout.addWidget(QLabel("Tag:"))
+        self.tag_input = QLineEdit()
+        tag_layout.addWidget(self.tag_input)
+        b_tag = QPushButton("Simulate Tag")
+        b_tag.clicked.connect(self.simulate_tag)
+        tag_layout.addWidget(b_tag)
+        tag_layout.attachTo(root)
+
+        log_layout = DVBoxLayout()
+        log_layout.setColor(c.highlight)
+        self.log = QTextEdit(readOnly=True)
+        log_layout.addWidget(self.log)
+        log_layout.attachTo(root, 1)
+
+    def simulate_tag(self) -> None:
+        tag = self.tag_input.text().strip()
+        if not tag:
+            return
+        self.log.append(f"<< EP:{tag}")
+        self.main_window.process_line(f"EP:{tag}")
+        self.log.append("<< RI:50")
+        self.main_window.process_line("RI:50")
+
+    def closeEvent(self, e):
+        self.main_window.simulator = None
+        super().closeEvent(e)
 
 
 def main() -> None:
