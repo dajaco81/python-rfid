@@ -47,11 +47,11 @@ class c:
     white     = "#ffffff"
     black     = "#000000"
 
-    primary   = "#267365"
-    secondary = "#F29F05"
-    tertiary  = "#F28705"
-    highlight = "#F2CB05"
-    alert     = "#F23030"
+    primary   = "#F2F2F2"
+    secondary = "#DCE4F2"
+    tertiary  = "#D8DCF2"
+    highlight = "#A6A6A6"
+    alert     = "#595959"
 
 class MplCanvas(FigureCanvas):
     """Simple matplotlib canvas for live plots."""
@@ -120,7 +120,7 @@ class MainWindow(QMainWindow):
         root.setSpacing(LayoutFrameMixer.DEFAULT_SPACING)
 
         left_container = DVBoxLayout()
-        left_container.setColor(c.secondary)
+        left_container.setColor(None)
         left_container.noMargins()
         self.generate_port_layout().attachTo(left_container)
         self.generate_connection_layout().attachTo(left_container)
@@ -132,7 +132,7 @@ class MainWindow(QMainWindow):
         left_container.attachTo(root, 1)
 
         right_container = DVBoxLayout()
-        right_container.setColor(c.tertiary)
+        right_container.setColor(None)
         right_container.noMargins()
         self.generate_version_layout().attachTo(right_container)
         self.generate_battery_layout().attachTo(right_container)
@@ -168,7 +168,7 @@ class MainWindow(QMainWindow):
 
     def generate_port_layout(self):
         portLayout = DHBoxLayout()
-        portLayout.setColor(c.secondary)
+        portLayout.setColor(c.highlight)
         portLayout.addWidget(QLabel("Port:"))
         self.combo = QComboBox()
         portLayout.addWidget(self.combo)
@@ -201,7 +201,7 @@ class MainWindow(QMainWindow):
 
     def generate_shortcuts_layout(self):
         shortcutsLayout = DHBoxLayout()
-        shortcutsLayout.setColor(c.highlight)
+        shortcutsLayout.setColor(c.secondary)
         for txt, cmd in [
             ("Version", ".vr"),
             ("Battery", ".bl"),
@@ -214,7 +214,7 @@ class MainWindow(QMainWindow):
 
     def generate_log_layout(self):
         logLayout = DVBoxLayout()
-        logLayout.setColor(c.alert)
+        logLayout.setColor(c.highlight)
         self.log = QTextEdit(readOnly=True)
         logLayout.addWidget(self.log)
         b_clear = QPushButton("Clear Console")
@@ -286,7 +286,7 @@ class MainWindow(QMainWindow):
 
     def generate_version_layout(self):
         versionLayout = DVBoxLayout()
-        versionLayout.setColor(c.secondary)
+        versionLayout.setColor(c.tertiary)
         versionLayout.addWidget(QLabel("Version"))
         self.version_bar = QProgressBar()
         self.version_bar.setTextVisible(False)
