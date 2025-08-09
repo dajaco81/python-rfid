@@ -709,7 +709,6 @@ class MainWindow(QMainWindow):
             self.worker.stop()
         e.accept()
 
-
 class SimulatorWindow(QMainWindow):
     """Window for simulating reader output."""
 
@@ -749,14 +748,12 @@ class SimulatorWindow(QMainWindow):
         self.main_window.simulator = None
         super().closeEvent(e)
 
-
 def main() -> None:
     """Launch the GUI application."""
     app = QApplication(sys.argv)
     mw = MainWindow()
     mw.show()
     sys.exit(app.exec_())
-
 
 if __name__ == "__main__":
     main()
