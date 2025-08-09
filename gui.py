@@ -4,6 +4,7 @@
 
 import sys
 import re
+import threading
 import serial
 import serial.tools.list_ports
 from PyQt5.QtWidgets import (
@@ -351,19 +352,15 @@ class MainWindow(QMainWindow):
             return False
 
     def refresh_ports(self):
-        """Rescan available serial ports and categorize them."""
-        # Indicate the refresh is in progress and prevent re-entry
+        """Rescan available serial ports without blocking the UI."""
         if hasattr(self, "refresh_button"):
             self.refresh_button.setText("🔄 Refreshing")
             self.refresh_button.setEnabled(False)
-            QApplication.processEvents()
 
-        try:
-            ports = serial.tools.list_ports.comports()
-        finally:
-            if hasattr(self, "refresh_button"):
-                self.refresh_button.setText("🔄 Refresh")
-                self.refresh_button.setEnabled(True)
+        threading.Thread(target=self._refresh_ports_worker, daemon=True).start()
+
+    def _refresh_ports_worker(self):
+        ports = serial.tools.list_ports.comports()
         usb = []
         bt = []
         for p in ports:
@@ -372,6 +369,13 @@ class MainWindow(QMainWindow):
             else:
                 bt.append(p)
 
+        if self.worker:
+            self.worker.stop()
+            self.worker = None
+
+        QTimer.singleShot(0, lambda: self._update_ports_ui(usb, bt, ports))
+
+    def _update_ports_ui(self, usb, bt, ports):
         self.combo.clear()
 
         def _add_group(label, plist):
@@ -394,17 +398,15 @@ class MainWindow(QMainWindow):
         if not ports:
             self.combo.addItem("<no ports>", "")
 
-        # Don't keep a previously selected index that might now refer to a
-        # disabled header. Select the first real port or nothing.
         self.combo.setCurrentIndex(-1)
         for i in range(self.combo.count()):
             if self.combo.itemData(i):
                 self.combo.setCurrentIndex(i)
                 break
 
-        if self.worker:
-            self.worker.stop()
-            self.worker = None
+        if hasattr(self, "refresh_button"):
+            self.refresh_button.setText("🔄 Refresh")
+            self.refresh_button.setEnabled(True)
 
     def connect_serial(self):
         """Create and start the worker for the chosen port."""
