@@ -53,68 +53,47 @@ class MplCanvas(FigureCanvas):
         super().__init__(fig)
         self.axes = fig.add_subplot(111)
 
-class DebugLayoutMixin:
-    """Mixin adding optional debug framing to layouts."""
+class LayoutFrameMixer:
+    """Adding framing to layouts."""
 
-    def __init__(self, *args, debug: bool = True, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._debug = debug
-        self._frame: Optional[QFrame] = None
+        # Always wrap the layout in a frame so spacing behaves consistently
+        self._frame: QFrame = QFrame()
+        self._frame.setLayout(self)
 
-        if debug:
-            self._frame = QFrame()
-            self._frame.setFrameShape(QFrame.Box)
-            palette = self._frame.palette()
-            palette.setColor(self._frame.backgroundRole(), QColor("#eef"))
-            self._frame.setPalette(palette)
-            self._frame.setAutoFillBackground(True)
-            self._frame.setLayout(self)
-    
     def setColor(self, color):
-        if self._frame:
-            self._frame.setFrameShape(QFrame.Box)
-            palette = self._frame.palette()
-            palette.setColor(self._frame.backgroundRole(), QColor(color))
-            self._frame.setPalette(palette)
-            self._frame.setAutoFillBackground(True)
+        if color == None:
+            self._frame.setAutoFillBackground(False)
+            return
+        palette = self._frame.palette()
+        palette.setColor(self._frame.backgroundRole(), QColor(color))
+        self._frame.setPalette(palette)
+        self._frame.setAutoFillBackground(True)
 
     def noMargins(self):
-        self.setContentsMargins(0, 0, 0, 0) # external
-        self.setSpacing(0)  # internal
+        self.setContentsMargins(0, 0, 0, 0)
+        self.setSpacing(0)
+        self._frame.setContentsMargins(0, 0, 0, 0)
 
     def defaultMargins(self):
         self.setContentsMargins(-1, -1, -1, -1)
         self.setSpacing(-1)
-
-    def showBorder(self) -> None:
-        if self._frame:
-            self._frame.setFrameShape(QFrame.Box)
-            palette = self._frame.palette()
-            palette.setColor(self._frame.backgroundRole(), QColor(self._color))
-            self._frame.setPalette(palette)
-            self._frame.setAutoFillBackground(True)
-
-    def hideBorder(self):
-        if self._frame:
-            self._frame.setFrameShape(QFrame.NoFrame)
-            self._frame.setAutoFillBackground(False)
+        self._frame.setContentsMargins(-1, -1, -1, -1)      
 
     def attachTo(self, parent_layout: QLayout, *args) -> None:
-        """Attach to parent layout in the appropriate form."""
-        if self._debug and self._frame is not None:
-            parent_layout.addWidget(self._frame, *args)
-        else:
-            parent_layout.addLayout(self, *args)
+        """Attach to parent layout using the frame wrapper."""
+        parent_layout.addWidget(self._frame, *args)
 
-class DHBoxLayout(DebugLayoutMixin, QHBoxLayout):
+class DHBoxLayout(LayoutFrameMixer, QHBoxLayout):
     """QHBoxLayout with optional debug border."""
-    def __init__(self, *args, debug: bool = True, **kwargs):
-        super().__init__(*args, debug=debug, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-class DVBoxLayout(DebugLayoutMixin, QVBoxLayout):
+class DVBoxLayout(LayoutFrameMixer, QVBoxLayout):
     """QVBoxLayout with optional debug border."""
-    def __init__(self, *args, debug: bool = True, **kwargs):
-        super().__init__(*args, debug=debug, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 class MainWindow(QMainWindow):
     """Primary application window."""
@@ -127,27 +106,27 @@ class MainWindow(QMainWindow):
         canvas = QWidget()
         self.setCentralWidget(canvas)
 
-        rootLayout = QHBoxLayout(canvas)
+        root = QHBoxLayout(canvas)
 
-        left_layout = DVBoxLayout()
-        left_layout.setColor(c.mint)
-        left_layout.noMargins()
-        self.generate_port_layout().attachTo(left_layout)
-        self.generate_connection_layout().attachTo(left_layout)
-        self.generate_shortcuts_layout().attachTo(left_layout)
-        self.generate_command_layout().attachTo(left_layout)
-        self.generate_log_layout().attachTo(left_layout)
-        self.generate_table_layout().attachTo(left_layout)
-        self.generate_tag_search_layout().attachTo(left_layout)
-        left_layout.attachTo(rootLayout, 1)
+        left_container = DVBoxLayout()
+        left_container.setColor(c.gray)
+        left_container.noMargins()
+        self.generate_port_layout().attachTo(left_container)
+        self.generate_connection_layout().attachTo(left_container)
+        self.generate_shortcuts_layout().attachTo(left_container)
+        self.generate_command_layout().attachTo(left_container)
+        self.generate_log_layout().attachTo(left_container)
+        self.generate_table_layout().attachTo(left_container)
+        self.generate_tag_search_layout().attachTo(left_container)
+        left_container.attachTo(root, 1)
 
-        right_layout = DVBoxLayout()
-        right_layout.setColor(c.gray)
-        right_layout.noMargins()
-        self.generate_version_layout().attachTo(right_layout)
-        self.generate_battery_layout().attachTo(right_layout)
-        self.generate_plot_layout().attachTo(right_layout)
-        right_layout.attachTo(rootLayout)
+        right_container = DVBoxLayout()
+        right_container.setColor(c.gray)
+        right_container.noMargins()
+        self.generate_version_layout().attachTo(right_container)
+        self.generate_battery_layout().attachTo(right_container)
+        self.generate_plot_layout().attachTo(right_container)
+        right_container.attachTo(root)
 
         # Auto‑poll
         self.poll_interval = 10  # seconds
@@ -177,7 +156,7 @@ class MainWindow(QMainWindow):
         self.battery_info: dict[str, str] = {}
 
     def generate_port_layout(self):
-        portLayout = DHBoxLayout(debug=False)
+        portLayout = DHBoxLayout()
         portLayout.setColor(c.red)
         portLayout.addWidget(QLabel("Port:"))
         self.combo = QComboBox()
@@ -188,7 +167,7 @@ class MainWindow(QMainWindow):
         return portLayout
 
     def generate_connection_layout(self):
-        connectionLayout = DHBoxLayout(debug=True)
+        connectionLayout = DHBoxLayout()
         connectionLayout.setColor(c.blue)
         for name, slot in [
             ("Connect", self.connect_serial),
