@@ -9,13 +9,13 @@ import serial.tools.list_ports
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow,
     QWidget, QLabel,
-    QLayout, QPushButton,
+    QLayout, QPushButton, QToolButton,
     QComboBox, QLineEdit,
     QTextEdit, QFrame,
     QHBoxLayout, QVBoxLayout,
     QTableWidget, QTableWidgetItem,
     QProgressBar, QSizePolicy,
-    QHeaderView, 
+    QHeaderView,
 )
 from PyQt5.QtCore import QTimer, QEvent, QObject
 from PyQt5.QtGui import QColor
@@ -296,7 +296,19 @@ class MainWindow(QMainWindow):
     def generate_version_layout(self):
         versionLayout = DVBoxLayout()
         versionLayout.setColor(c.tertiary)
-        versionLayout.addWidget(QLabel("Version"))
+
+        header = QHBoxLayout()
+        header.addWidget(QLabel("Version"))
+        header.addStretch()
+        self.version_poll_toggle = QToolButton()
+        self.version_poll_toggle.setCheckable(True)
+        self.version_poll_toggle.setChecked(True)
+        self.version_poll_toggle.setText("On")
+        self.version_poll_toggle.setFixedWidth(50)
+        self.version_poll_toggle.clicked.connect(self.toggle_version_polling)
+        header.addWidget(self.version_poll_toggle)
+        versionLayout.addLayout(header)
+
         self.version_bar = QProgressBar()
         self.version_bar.setTextVisible(False)
         self.version_bar.setFixedHeight(4)
@@ -309,35 +321,37 @@ class MainWindow(QMainWindow):
         versionLayout.addWidget(self.version_bar)
         self.version_display = QTextEdit(readOnly=True)
         versionLayout.addWidget(self.version_display)
-        self.version_poll_toggle = QPushButton("Polling On")
-        self.version_poll_toggle.setCheckable(True)
-        self.version_poll_toggle.setChecked(True)
-        self.version_poll_toggle.clicked.connect(self.toggle_version_polling)
-        versionLayout.addWidget(self.version_poll_toggle)
         return versionLayout
 
     def generate_battery_layout(self):
-            batteryLayout = DVBoxLayout()
-            batteryLayout.setColor(c.secondary)
-            batteryLayout.addWidget(QLabel("Battery"))
-            self.battery_bar = QProgressBar()
-            self.battery_bar.setTextVisible(False)
-            self.battery_bar.setFixedHeight(4)
-            self.battery_bar.setStyleSheet(
-                """
-                QProgressBar {border:1px solid #555;border-radius:2px;background:#eee;}
-                QProgressBar::chunk {background-color:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #66f,stop:1 #9cf);}
-                """
-            )
-            batteryLayout.addWidget(self.battery_bar)
-            self.battery_display = QTextEdit(readOnly=True)
-            batteryLayout.addWidget(self.battery_display)
-            self.battery_poll_toggle = QPushButton("Polling On")
-            self.battery_poll_toggle.setCheckable(True)
-            self.battery_poll_toggle.setChecked(True)
-            self.battery_poll_toggle.clicked.connect(self.toggle_battery_polling)
-            batteryLayout.addWidget(self.battery_poll_toggle)
-            return batteryLayout
+        batteryLayout = DVBoxLayout()
+        batteryLayout.setColor(c.secondary)
+
+        header = QHBoxLayout()
+        header.addWidget(QLabel("Battery"))
+        header.addStretch()
+        self.battery_poll_toggle = QToolButton()
+        self.battery_poll_toggle.setCheckable(True)
+        self.battery_poll_toggle.setChecked(True)
+        self.battery_poll_toggle.setText("On")
+        self.battery_poll_toggle.setFixedWidth(50)
+        self.battery_poll_toggle.clicked.connect(self.toggle_battery_polling)
+        header.addWidget(self.battery_poll_toggle)
+        batteryLayout.addLayout(header)
+
+        self.battery_bar = QProgressBar()
+        self.battery_bar.setTextVisible(False)
+        self.battery_bar.setFixedHeight(4)
+        self.battery_bar.setStyleSheet(
+            """
+            QProgressBar {border:1px solid #555;border-radius:2px;background:#eee;}
+            QProgressBar::chunk {background-color:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #66f,stop:1 #9cf);}
+            """
+        )
+        batteryLayout.addWidget(self.battery_bar)
+        self.battery_display = QTextEdit(readOnly=True)
+        batteryLayout.addWidget(self.battery_display)
+        return batteryLayout
 
     def generate_plot_layout(self):
             plotLayout = DVBoxLayout()
@@ -459,7 +473,7 @@ class MainWindow(QMainWindow):
         """Turn automatic version polling on or off."""
         self.version_poll_enabled = self.version_poll_toggle.isChecked()
         self.version_poll_toggle.setText(
-            "Polling On" if self.version_poll_enabled else "Polling Off"
+            "On" if self.version_poll_enabled else "Off"
         )
         if self.version_poll_enabled and self.worker:
             self.poll_version()
@@ -468,7 +482,7 @@ class MainWindow(QMainWindow):
         """Turn automatic battery polling on or off."""
         self.battery_poll_enabled = self.battery_poll_toggle.isChecked()
         self.battery_poll_toggle.setText(
-            "Polling On" if self.battery_poll_enabled else "Polling Off"
+            "On" if self.battery_poll_enabled else "Off"
         )
         if self.battery_poll_enabled and self.worker:
             self.poll_battery()
@@ -504,7 +518,8 @@ class MainWindow(QMainWindow):
 
         if silent:
             for part in cmd.split(";"):
-                self.silent_queue.append(part.strip())
+                part = part.strip()
+                self.silent_queue.append(part.lstrip(".").upper())
 
         self.worker.write(cmd, not silent)
         self.input.clear()
@@ -574,7 +589,7 @@ class MainWindow(QMainWindow):
 
     def on_command_sent(self, cmd: str):
         """Log sent commands that aren't silent."""
-        if self.silent_queue and self.silent_queue[0] == cmd:
+        if self.silent_queue and self.silent_queue[0] == cmd.lstrip(".").upper():
             return
         self.log.append(f">> {cmd}")
 
