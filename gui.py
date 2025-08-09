@@ -32,18 +32,20 @@ from constants import STRENGTH_HISTORY_LEN
 # endregion
 
 class c:
-    red     = "#ffb3b3"
-    green   = "#b3ffcc"
-    blue    = "#b3d9ff"
-    yellow  = "#fff5b3"
-    orange  = "#ffd9b3"
-    purple  = "#e0b3ff"
-    pink    = "#ffccf2"
-    cyan    = "#b3ffff"
-    mint    = "#ccffe6"
-    gray    = "#e6e6e6"
-    white   = "#ffffff"
-    black   = "#000000"
+    red       = "#ffb3b3"
+    green     = "#b3ffcc"
+    blue      = "#b3d9ff"
+    yellow    = "#fff5b3"
+    orange    = "#ffd9b3"
+    purple    = "#e0b3ff"
+    pink      = "#ffccf2"
+    cyan      = "#b3ffff"
+    mint      = "#ccffe6"
+    lavender  = "#e6e6fa"
+    peach     = "#ffe5b4"
+    gray      = "#e6e6e6"
+    white     = "#ffffff"
+    black     = "#000000"
 
 class MplCanvas(FigureCanvas):
     """Simple matplotlib canvas for live plots."""
@@ -121,7 +123,7 @@ class MainWindow(QMainWindow):
         left_container.attachTo(root, 1)
 
         right_container = DVBoxLayout()
-        right_container.setColor(c.gray)
+        right_container.setColor(c.mint)
         right_container.noMargins()
         self.generate_version_layout().attachTo(right_container)
         self.generate_battery_layout().attachTo(right_container)
@@ -203,7 +205,7 @@ class MainWindow(QMainWindow):
 
     def generate_log_layout(self):
         logLayout = DVBoxLayout()
-        logLayout.setColor(c.blue)
+        logLayout.setColor(c.purple)
         self.log = QTextEdit(readOnly=True)
         logLayout.addWidget(self.log)
         b_clear = QPushButton("Clear Console")
@@ -254,7 +256,7 @@ class MainWindow(QMainWindow):
 
     def generate_tag_search_layout(self):
         tagSearchLayout = DHBoxLayout()
-        tagSearchLayout.setColor(c.red)
+        tagSearchLayout.setColor(c.pink)
         tagSearchLayout.addWidget(QLabel("Search Tag:"))
         self.tag_search_input = QLineEdit()
         self.tag_search_input.setPlaceholderText("Enter tag")
@@ -264,7 +266,7 @@ class MainWindow(QMainWindow):
     
     def generate_command_layout(self):
         commandLayout = DHBoxLayout()
-        commandLayout.setColor(c.orange)
+        commandLayout.setColor(c.green)
         commandLayout.addWidget(QLabel("Command:"))
         self.input = QLineEdit()
         commandLayout.addWidget(self.input)
@@ -275,7 +277,7 @@ class MainWindow(QMainWindow):
 
     def generate_version_layout(self):
         versionLayout = DVBoxLayout()
-        versionLayout.setColor(c.red)
+        versionLayout.setColor(c.lavender)
         versionLayout.addWidget(QLabel("Version"))
         self.version_bar = QProgressBar()
         self.version_bar.setTextVisible(False)
@@ -311,7 +313,7 @@ class MainWindow(QMainWindow):
 
     def generate_plot_layout(self):
             plotLayout = DVBoxLayout()
-            plotLayout.setColor(c.gray)
+            plotLayout.setColor(c.peach)
             plotLayout.addWidget(QLabel("Signal Strength"))
             self.strength_canvas = MplCanvas()
             plotLayout.addWidget(self.strength_canvas)
