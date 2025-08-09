@@ -47,6 +47,12 @@ class c:
     white     = "#ffffff"
     black     = "#000000"
 
+    primary   = "#F2F2F2"
+    secondary = "#DCE4F2"
+    tertiary  = "#D8DCF2"
+    highlight = "#A6A6A6"
+    alert     = "#595959"
+
 class MplCanvas(FigureCanvas):
     """Simple matplotlib canvas for live plots."""
 
@@ -108,10 +114,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("TSL 1128 Interface")
         self.resize(1200, 800)
 
-        canvas = QWidget()
-        self.setCentralWidget(canvas)
-
-        root = QHBoxLayout(canvas)
+        root = DHBoxLayout()
+        root.setColor(c.primary)
+        self.setCentralWidget(root._frame)
         root.setSpacing(LayoutFrameMixer.DEFAULT_SPACING)
 
         left_container = DVBoxLayout()
@@ -160,10 +165,11 @@ class MainWindow(QMainWindow):
         self.response_parser = ResponseParser()
         self.version_info: dict[str, str] = {}
         self.battery_info: dict[str, str] = {}
+        self.simulator = None
 
     def generate_port_layout(self):
         portLayout = DHBoxLayout()
-        portLayout.setColor(c.red)
+        portLayout.setColor(c.highlight)
         portLayout.addWidget(QLabel("Port:"))
         self.combo = QComboBox()
         portLayout.addWidget(self.combo)
@@ -174,7 +180,7 @@ class MainWindow(QMainWindow):
 
     def generate_connection_layout(self):
         connectionLayout = DHBoxLayout()
-        connectionLayout.setColor(c.blue)
+        connectionLayout.setColor(c.tertiary)
         for name, slot in [
             ("Connect", self.connect_serial),
             ("Disconnect", self.disconnect_serial),
@@ -192,11 +198,14 @@ class MainWindow(QMainWindow):
         self.session_toggle.setChecked(False)
         self.session_toggle.toggled.connect(self.toggle_session)
         connectionLayout.addWidget(self.session_toggle)
+        b_sim = QPushButton("Simulator")
+        b_sim.clicked.connect(self.open_simulator)
+        connectionLayout.addWidget(b_sim)
         return connectionLayout
 
     def generate_shortcuts_layout(self):
         shortcutsLayout = DHBoxLayout()
-        shortcutsLayout.setColor(c.cyan)
+        shortcutsLayout.setColor(c.secondary)
         for txt, cmd in [
             ("Version", ".vr"),
             ("Battery", ".bl"),
@@ -209,7 +218,7 @@ class MainWindow(QMainWindow):
 
     def generate_log_layout(self):
         logLayout = DVBoxLayout()
-        logLayout.setColor(c.purple)
+        logLayout.setColor(c.highlight)
         self.log = QTextEdit(readOnly=True)
         logLayout.addWidget(self.log)
         b_clear = QPushButton("Clear Console")
@@ -219,7 +228,7 @@ class MainWindow(QMainWindow):
 
     def generate_table_layout(self):
         tableLayout = DVBoxLayout()
-        tableLayout.setColor(c.orange)
+        tableLayout.setColor(c.secondary)
         b_clear_table = QPushButton("Clear Tags"); b_clear_table.clicked.connect(self.clear_table)
         tableLayout.addWidget(b_clear_table)
 
@@ -260,7 +269,7 @@ class MainWindow(QMainWindow):
 
     def generate_tag_search_layout(self):
         tagSearchLayout = DHBoxLayout()
-        tagSearchLayout.setColor(c.pink)
+        tagSearchLayout.setColor(c.highlight)
         tagSearchLayout.addWidget(QLabel("Search Tag:"))
         self.tag_search_input = QLineEdit()
         self.tag_search_input.setPlaceholderText("Enter tag")
@@ -270,7 +279,7 @@ class MainWindow(QMainWindow):
     
     def generate_command_layout(self):
         commandLayout = DHBoxLayout()
-        commandLayout.setColor(c.green)
+        commandLayout.setColor(c.tertiary)
         commandLayout.addWidget(QLabel("Command:"))
         self.input = QLineEdit()
         commandLayout.addWidget(self.input)
@@ -281,7 +290,7 @@ class MainWindow(QMainWindow):
 
     def generate_version_layout(self):
         versionLayout = DVBoxLayout()
-        versionLayout.setColor(c.lavender)
+        versionLayout.setColor(c.tertiary)
         versionLayout.addWidget(QLabel("Version"))
         self.version_bar = QProgressBar()
         self.version_bar.setTextVisible(False)
@@ -299,7 +308,7 @@ class MainWindow(QMainWindow):
 
     def generate_battery_layout(self):
             batteryLayout = DVBoxLayout()
-            batteryLayout.setColor(c.yellow)
+            batteryLayout.setColor(c.secondary)
             batteryLayout.addWidget(QLabel("Battery"))
             self.battery_bar = QProgressBar()
             self.battery_bar.setTextVisible(False)
@@ -317,7 +326,7 @@ class MainWindow(QMainWindow):
 
     def generate_plot_layout(self):
             plotLayout = DVBoxLayout()
-            plotLayout.setColor(c.peach)
+            plotLayout.setColor(c.tertiary)
             plotLayout.addWidget(QLabel("Signal Strength"))
             self.strength_canvas = MplCanvas()
             plotLayout.addWidget(self.strength_canvas)
@@ -429,8 +438,13 @@ class MainWindow(QMainWindow):
         self.tag_strengths.clear()
         self.tag_min_strengths.clear()
         self.tag_max_strengths.clear()
-        self.update_table()
-        self.update_strength_plot()
+
+    def open_simulator(self) -> None:
+        """Show the simulator window for manual line entry."""
+        if self.simulator is None:
+            self.simulator = SimulatorWindow(self)
+        self.simulator.show()
+        self.simulator.raise_()
 
     def send_command(self, cmd: str, silent: bool = False):
         """Send a command string to the reader."""
@@ -693,6 +707,46 @@ class MainWindow(QMainWindow):
         if self.worker:
             self.worker.stop()
         e.accept()
+
+
+class SimulatorWindow(QMainWindow):
+    """Window for simulating reader output."""
+
+    def __init__(self, main_window: "MainWindow") -> None:
+        super().__init__()
+        self.main_window = main_window
+        self.setWindowTitle("Simulator")
+        root = DVBoxLayout()
+        root.noMargins()
+        self.setCentralWidget(root._frame)
+
+        tag_layout = DHBoxLayout()
+        tag_layout.addWidget(QLabel("Tag:"))
+        self.tag_input = QLineEdit()
+        tag_layout.addWidget(self.tag_input)
+        b_tag = QPushButton("Simulate Tag")
+        b_tag.clicked.connect(self.simulate_tag)
+        tag_layout.addWidget(b_tag)
+        tag_layout.attachTo(root)
+
+        log_layout = DVBoxLayout()
+        log_layout.setColor(c.highlight)
+        self.log = QTextEdit(readOnly=True)
+        log_layout.addWidget(self.log)
+        log_layout.attachTo(root, 1)
+
+    def simulate_tag(self) -> None:
+        tag = self.tag_input.text().strip()
+        if not tag:
+            return
+        self.log.append(f"<< EP:{tag}")
+        self.main_window.process_line(f"EP:{tag}")
+        self.log.append("<< RI:50")
+        self.main_window.process_line("RI:50")
+
+    def closeEvent(self, e):
+        self.main_window.simulator = None
+        super().closeEvent(e)
 
 
 def main() -> None:
