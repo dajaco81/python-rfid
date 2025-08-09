@@ -179,9 +179,9 @@ class MainWindow(QMainWindow):
         portLayout.addWidget(QLabel("Port:"))
         self.combo = QComboBox()
         portLayout.addWidget(self.combo)
-        b_refresh = QPushButton("🔄 Refresh")
-        b_refresh.clicked.connect(self.refresh_ports)
-        portLayout.addWidget(b_refresh)
+        self.refresh_button = QPushButton("🔄 Refresh")
+        self.refresh_button.clicked.connect(self.refresh_ports)
+        portLayout.addWidget(self.refresh_button)
         self.status_label = QLabel("🔌 Disconnected")
         portLayout.addWidget(self.status_label)
         return portLayout
@@ -352,7 +352,18 @@ class MainWindow(QMainWindow):
 
     def refresh_ports(self):
         """Rescan available serial ports and categorize them."""
-        ports = serial.tools.list_ports.comports()
+        # Indicate the refresh is in progress and prevent re-entry
+        if hasattr(self, "refresh_button"):
+            self.refresh_button.setText("🔄 Refreshing")
+            self.refresh_button.setEnabled(False)
+            QApplication.processEvents()
+
+        try:
+            ports = serial.tools.list_ports.comports()
+        finally:
+            if hasattr(self, "refresh_button"):
+                self.refresh_button.setText("🔄 Refresh")
+                self.refresh_button.setEnabled(True)
         usb = []
         bt = []
         for p in ports:
