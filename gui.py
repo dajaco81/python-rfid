@@ -553,6 +553,9 @@ class MainWindow(QMainWindow):
         """Handle reader connection."""
         self.status_label.setText(f"✅ Connected")
         self.connect_poll_timer.stop()
+        self.silent_queue.clear()
+        self.current_cmd = None
+        self.current_silent = False
         if not self.reconnecting:
             self.tag_counts.clear()
             self.tag_strengths.clear()
@@ -613,6 +616,8 @@ class MainWindow(QMainWindow):
 
         if self.response_parser.command and self.current_cmd != self.response_parser.command:
             self.current_cmd = self.response_parser.command.strip().lower()
+            while self.silent_queue and self.silent_queue[0] != self.current_cmd:
+                self.silent_queue.pop(0)
             self.current_silent = bool(
                 self.silent_queue and self.silent_queue[0] == self.current_cmd
             )
